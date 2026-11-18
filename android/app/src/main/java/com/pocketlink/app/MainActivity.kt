@@ -273,7 +273,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(4), dp(6), dp(4), dp(6))
         }
-        val items = listOf("Главная" to R.drawable.ic_pointer, "Пульт" to R.drawable.ic_pointer, "ПК" to R.drawable.ic_tools,
+        val items = listOf("Главная" to R.drawable.ic_home, "Пульт" to R.drawable.ic_pointer, "ПК" to R.drawable.ic_tools,
             "Экран" to R.drawable.ic_display, "Настройки" to R.drawable.ic_device)
         items.forEachIndexed { i, (name, icon) ->
             val col = LinearLayout(this).apply {

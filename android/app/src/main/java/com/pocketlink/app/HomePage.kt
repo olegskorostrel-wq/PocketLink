@@ -44,7 +44,7 @@ class HomePage(act: MainActivity) : Page(act) {
         body.addView(btn(act, "Буфер ПК → на телефон") { online("clipboard") { Hub.send("clip.pc.request") } }, lp(t = 8, ctx = act))
         body.addView(sectionTitle(act, "Часто нужно"))
         body.addView(btn(act, "Файлы и передача") { act.openUtility(FilesPage(act)) })
-        body.addView(btn(act, "Тачпад, клавиатура и мультимедиа") { act.openUtility(RemotePage(act)) })
+        body.addView(btn(act, "Тачпад, клавиатура и мультимедиа") { act.openUtility(RemotePage(act)) }, lp(t = 8, ctx = act))
         body.addView(btn(act, "YouTube — поиск и пульт") { act.openUtility(YouTubePage(act)) }, lp(t = 8, ctx = act))
         body.addView(btn(act, "Окна и состояние ПК") { act.openUtility(DesktopPage(act)) }, lp(t = 8, ctx = act))
         body.addView(btn(act, "Заблокировать ПК") { online("power") { Hub.send("power", "action" to "lock", "delay" to 0) } }, lp(t = 8, ctx = act))
