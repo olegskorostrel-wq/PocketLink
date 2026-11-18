@@ -2,17 +2,25 @@
 
 Android-пульт для Windows: тачпад, клавиатура и свои сочетания, экран ПК на телефоне, файлы, буфер обмена, звук и YouTube.
 
-**В репозитории теперь есть полный Android-проект версии 1.5.0**, включая исходники интерфейса, ресурсы, справочник сочетаний и Gradle Wrapper. Это рабочая исходная версия для улучшения визуала, а не только APK.
+**В репозитории теперь есть полный Android-проект версии 1.5.1**, включая исходники интерфейса, ресурсы, справочник сочетаний и Gradle Wrapper. Это рабочая исходная версия для улучшения визуала, а не только APK.
 
 - **Для Claude и других разработчиков: [задание и карта интерфейса](docs/UI-HANDOFF.md).**
 - [Исходники Android](android/)
 - [Последние сборки и изменения](https://github.com/olegskorostrel-wq/PocketLink/releases)
-- [Android APK 1.5.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.5.0-preview/PocketLink.apk)
-- [Windows ZIP 1.3.0, совместим с Android 1.5.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/windows-v1.3.0/PocketLink-Windows.zip)
+- [Android APK 1.5.1](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.5.1-preview/PocketLink.apk)
+- [Windows ZIP 1.4.0 со scrcpy, совместим с Android 1.5.1](https://github.com/olegskorostrel-wq/PocketLink/releases/download/windows-v1.4.0/PocketLink-Windows.zip)
 
 ## Полный комплект в одном релизе
 
-[Скачать все компоненты с одной страницы](https://github.com/olegskorostrel-wq/PocketLink/releases/tag/v1.5.0-preview): **PocketLink.apk**, **PocketLink-Windows.zip**, **PocketLink-Firefox.xpi**, **PocketLink-Chrome-Yandex.zip**. Начиная с этого комплекта, в каждый новый выпуск включаются все четыре пакета, даже если изменился только один. Версии компонентов перечислены в описании релиза. [Правило публикации](docs/RELEASE-CHECKLIST.md).
+[Скачать все компоненты с одной страницы](https://github.com/olegskorostrel-wq/PocketLink/releases/tag/v1.5.1-preview): **PocketLink.apk**, **PocketLink-Windows.zip**, **PocketLink-Firefox.xpi**, **PocketLink-Chrome-Yandex.zip**. Начиная с этого комплекта, в каждый новый выпуск включаются все четыре пакета, даже если изменился только один. Версии компонентов перечислены в описании релиза. [Правило публикации](docs/RELEASE-CHECKLIST.md).
+
+## Экран телефона на ПК и ручной буфер
+
+В **Windows 1.4.0** появился раздел **Экран телефона** со встроенным официальным scrcpy 5.0.1: USB/Wi-Fi, управление, звук, запись и готовые режимы. [Полная инструкция scrcpy и ограничения](docs/PHONE-MIRROR.md).
+
+Скопируй текст на ПК и нажми **Буфер → на телефон** сверху окна или в меню значка возле часов — вставлять текст в редактор не нужно. Редактор сохранён. **Android 1.5.1** добавляет подтверждение получения.
+
+Windows: **10 2004 / build 19041+ или 11**, x64, .NET 8 Desktop Runtime. Android: **10+**, в том числе Android 15. Сквозная проверка на отдельном Windows 10 и реальном телефоне пока не выполнена.
 
 ## Как скачать и установить программу на Windows
 

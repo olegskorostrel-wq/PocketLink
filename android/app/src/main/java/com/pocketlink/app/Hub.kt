@@ -287,7 +287,7 @@ object Hub {
         send(
             JSONObject().put("t", "hello")
                 .put("name", Prefs.deviceName).put("model", Build.MODEL ?: "").put("sdk", Build.VERSION.RELEASE ?: "")
-                .put("version", "1.2.0")
+                .put("version", app.packageManager.getPackageInfo(app.packageName, 0).versionName).put("clipboardAck", true)
                 .put("battery", bat)
                 .put("perms", Features.permsJson())
         )
@@ -303,6 +303,21 @@ object Hub {
                 emit("config")
             }
             "pc.status" -> main.post { if (g == gen) { status = m; emit("status", m) } }
+            "clip.apply" -> main.post {
+                if (g != gen) return@post
+                var ok = false
+                val text = m.optString("text")
+                if (can("clipboard") && text.toByteArray(Charsets.UTF_8).size <= 128 * 1024) {
+                    try {
+                        val cm = app.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("PocketLink", text))
+                        lastClipFromPc = text
+                        emit("clip", text)
+                        ok = true
+                    } catch (_: Exception) { }
+                }
+                send(JSONObject().put("t", "clip.applied").put("id", m.optInt("id")).put("ok", ok))
+            }
             "clip.ack" -> main.post {
                 if (g == gen && pendingClipboard.remove(m.optInt("id"))) {
                     toast(if (m.optBoolean("ok")) "Получено на ПК" else "Не удалось записать в буфер ПК")
