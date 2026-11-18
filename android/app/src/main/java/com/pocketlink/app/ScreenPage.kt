@@ -67,7 +67,7 @@ class PcScreenView(context: Context) : View(context) {
     }
 
     override fun onDraw(c: Canvas) {
-        c.drawColor(Color.BLACK)
+        c.drawColor(if (bmp == null) T.panel else Color.BLACK)
         val b = bmp
         if (b == null) { c.drawText(hint, width / 2f, height / 2f, textPaint); return }
         val s = minOf(width.toFloat() / b.width, height.toFloat() / b.height) * zoom
@@ -134,13 +134,16 @@ class ScreenPage(act: MainActivity) : Page(act) {
 
     override val root: View = android.widget.LinearLayout(act).also { r ->
         r.orientation = android.widget.LinearLayout.VERTICAL
+        r.addView(pageHeading(act, "Экран ПК"), lp(l = 12, r = 12, ctx = act))
         val bar = hbox(act, 8)
         toggle = btn(act, "Старт", 1) { if (running) stop() else start() }
         bar.addView(toggle, lp(-2, -2, r = 8, ctx = act))
         bar.addView(btn(act, "Монитор") { Hub.send("screen.monitors") }, lp(-2, -2, r = 8, ctx = act))
         bar.addView(status, lp(0, weight = 1f))
         r.addView(bar)
-        r.addView(view, lp(h = 0, weight = 1f))
+        view.background = roundBg(T.panel, 20, act, T.line, 1)
+        view.clipToOutline = true
+        r.addView(view, lp(h = 0, weight = 1f, l = 12, r = 12, b = 12, ctx = act))
         view.onTap = { x, y, b ->
             if (running && Prefs.screenControl) Hub.send(JSONObject().put("t", "screen.tap").put("x", x.toDouble()).put("y", y.toDouble()).put("btn", b))
         }

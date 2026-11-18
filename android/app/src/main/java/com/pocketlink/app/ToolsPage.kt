@@ -67,6 +67,12 @@ class ToolsPage(act: MainActivity) : Page(act) {
         val v = views[0]
         v.removeAllViews()
         shortcuts.render(v)
+        v.addView(sectionTitle(act, "Инструменты"))
+        val tools = card(act, 4)
+        tools.addView(actionRow(act, "YouTube", "Поиск и управление видео") { act.openUtility(YouTubePage(act)) })
+        tools.addView(actionRow(act, "Микшер", "Звук приложений и аудиовыход") { act.openUtility(MixerPage(act)) }, lp(t = 4, ctx = act))
+        tools.addView(actionRow(act, "Окна ПК", "Программы и состояние компьютера") { act.openUtility(DesktopPage(act)) }, lp(t = 4, ctx = act))
+        v.addView(tools)
         v.addView(sectionTitle(act, "Команды с компьютера"))
         if (Hub.state != Hub.State.ONLINE) {
             v.addView(muted(act, "Сохранённые на ПК команды появятся после подключения.", 12.5f), lp(l = 4, b = 16, ctx = act))

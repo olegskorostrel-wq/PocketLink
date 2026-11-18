@@ -25,21 +25,47 @@ object T {
     var bg = 0; var panel = 0; var panel2 = 0; var line = 0
     var text = 0; var muted = 0
     var accentSoft = 0; var dangerSoft = 0; var okSoft = 0
-    val accent = Color.rgb(84, 132, 248)
+    var accent = Color.rgb(173, 143, 250)
+    var primary = Color.rgb(116, 70, 216)
     val danger = Color.rgb(228, 84, 84)
     val ok = Color.rgb(46, 184, 114)
 
+    private fun mix(a: Int, b: Int, fraction: Float) = Color.rgb(
+        (Color.red(a) * (1 - fraction) + Color.red(b) * fraction).toInt(),
+        (Color.green(a) * (1 - fraction) + Color.green(b) * fraction).toInt(),
+        (Color.blue(a) * (1 - fraction) + Color.blue(b) * fraction).toInt())
+
     fun update(ctx: Context) {
-        dark = (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        if (dark) {
-            bg = Color.rgb(13, 15, 20); panel = Color.rgb(23, 26, 34); panel2 = Color.rgb(34, 38, 50); line = Color.rgb(46, 51, 66)
-            text = Color.rgb(233, 236, 243); muted = Color.rgb(134, 142, 160)
-            accentSoft = Color.argb(48, 84, 132, 248)
-        } else {
-            bg = Color.rgb(244, 246, 251); panel = Color.WHITE; panel2 = Color.rgb(236, 239, 247); line = Color.rgb(224, 228, 238)
-            text = Color.rgb(22, 26, 38); muted = Color.rgb(106, 114, 132)
-            accentSoft = Color.argb(34, 84, 132, 248)
+        dark = when (Prefs.themeMode) {
+            "dark" -> true
+            "light" -> false
+            else -> (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
+        if (dark) {
+            bg = Color.rgb(16, 15, 22); panel = Color.rgb(28, 25, 37); panel2 = Color.rgb(39, 35, 51); line = Color.rgb(60, 53, 76)
+            text = Color.rgb(241, 236, 248); muted = Color.rgb(172, 162, 189)
+            accent = Color.rgb(173, 143, 250)
+            accentSoft = Color.argb(42, 173, 143, 250)
+        } else {
+            bg = Color.rgb(247, 244, 252); panel = Color.WHITE; panel2 = Color.rgb(239, 233, 249); line = Color.rgb(223, 213, 238)
+            text = Color.rgb(35, 27, 50); muted = Color.rgb(111, 98, 132)
+            accent = Color.rgb(112, 65, 200)
+            accentSoft = Color.argb(22, 112, 65, 200)
+        }
+        primary = Color.parseColor(when (Prefs.themeAccent) {
+            "blue" -> "#3268D9"
+            "green" -> "#187C61"
+            "orange" -> "#B75B19"
+            "pink" -> "#B63D76"
+            "graphite" -> "#536173"
+            else -> "#7847D8"
+        })
+        accent = if (dark) mix(primary, Color.WHITE, .40f) else primary
+        accentSoft = Color.argb(if (dark) 38 else 22, Color.red(accent), Color.green(accent), Color.blue(accent))
+        bg = mix(if (dark) Color.rgb(16, 17, 22) else Color.rgb(248, 248, 251), primary, .025f)
+        panel = mix(if (dark) Color.rgb(26, 27, 34) else Color.WHITE, primary, .035f)
+        panel2 = mix(if (dark) Color.rgb(37, 38, 47) else Color.rgb(238, 239, 244), primary, .06f)
+        line = mix(if (dark) Color.rgb(56, 57, 68) else Color.rgb(219, 221, 229), primary, .07f)
         dangerSoft = Color.argb(if (dark) 40 else 28, 228, 84, 84)
         okSoft = Color.argb(if (dark) 40 else 30, 46, 184, 114)
     }
@@ -89,7 +115,7 @@ fun tv(ctx: Context, text: CharSequence, sizeSp: Float = 15f, color: Int = T.tex
 fun muted(ctx: Context, text: CharSequence, sizeSp: Float = 13f) = tv(ctx, text, sizeSp, T.muted)
 
 fun card(ctx: Context, padDp: Int = 14): LinearLayout = vbox(ctx, padDp).apply {
-    background = roundBg(T.panel, 18, ctx, T.line, 1)
+    background = roundBg(T.panel, 20, ctx, T.line, 1)
 }
 
 /** kind: 0 обычная, 1 основная (акцент), 2 опасная, 3 контурная. */
@@ -101,7 +127,7 @@ fun btn(ctx: Context, text: String, kind: Int = 0, onClick: () -> Unit): TextVie
     val fg = when (kind) { 1 -> Color.WHITE; 2 -> T.danger; else -> T.text }
     setTextColor(fg)
     val shape = when (kind) {
-        1 -> roundBg(T.accent, 14, ctx)
+        1 -> roundBg(T.primary, 15, ctx)
         2 -> roundBg(T.dangerSoft, 14, ctx)
         3 -> roundBg(0, 14, ctx, T.line, 1)
         else -> roundBg(T.panel2, 14, ctx)
@@ -209,7 +235,7 @@ class Segmented(private val ctx: Context, names: List<String>, private val onPic
         items.forEachIndexed { i, t ->
             val on = i == sel
             t.setTextColor(if (on) Color.WHITE else T.muted)
-            t.background = if (on) roundBg(T.accent, 11, ctx) else null
+            t.background = if (on) roundBg(T.primary, 11, ctx) else null
         }
     }
 }
@@ -244,3 +270,13 @@ fun emptyState(ctx: Context, title: String, sub: String, actionText: String? = n
         if (actionText != null && onAction != null)
             addView(btn(ctx, actionText, 1) { onAction() }, lp(-2, -2, t = 16, ctx = ctx))
     }
+
+fun pageHeading(ctx: Context, title: String, subtitle: String? = null): View = vbox(ctx).apply {
+    addView(tv(ctx, title, 26f, T.text, true))
+    if (subtitle != null) addView(muted(ctx, subtitle, 13f), lp(t = 4, ctx = ctx))
+    setPadding(ctx.dp(4), ctx.dp(10), ctx.dp(4), ctx.dp(14))
+}
+
+fun pageHeading(ctx: Context, title: String): View = tv(ctx, title, 25f, T.text, true).apply {
+    setPadding(ctx.dp(2), ctx.dp(8), ctx.dp(2), ctx.dp(12))
+}

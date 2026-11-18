@@ -15,8 +15,7 @@ import org.json.JSONObject
 
 /** Вкладка «Файлы»: проводник по ПК, передачи, буфер обмена. */
 class FilesPage(act: MainActivity) : Page(act) {
-    private val tabs = hbox(act)
-    private val tabViews = mutableListOf<TextView>()
+    private val seg = Segmented(act, listOf("Файлы ПК", "Передачи", "Буфер")) { setMode(it) }
     private val body = android.widget.FrameLayout(act)
     private val browser = vbox(act)
     private val transfers = vbox(act)
@@ -31,16 +30,8 @@ class FilesPage(act: MainActivity) : Page(act) {
     private var mode = 0
 
     override val root: View = vbox(act).also { r ->
-        listOf("Обзор ПК", "Передачи", "Буфер").forEachIndexed { i, n ->
-            val t = tv(act, n, 13f, T.muted, true).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, act.dp(8), 0, act.dp(8))
-                setOnClickListener { setMode(i) }
-            }
-            tabViews += t
-            tabs.addView(t, lp(0, weight = 1f))
-        }
-        r.addView(tabs, lp(l = 10, t = 6, r = 10, ctx = act))
+        r.addView(pageHeading(act, "Файлы"), lp(l = 12, r = 12, ctx = act))
+        r.addView(seg.view, lp(l = 12, r = 12, b = 8, ctx = act))
         for (v in listOf(browser, transfers, clip)) {
             val sv = ScrollView(act).apply { isFillViewport = true; addView(v) }
             body.addView(sv)
@@ -51,14 +42,10 @@ class FilesPage(act: MainActivity) : Page(act) {
 
     private fun setMode(i: Int) {
         mode = i
-        tabViews.forEachIndexed { idx, t ->
-            val on = idx == i
-            t.setTextColor(if (on) Color.WHITE else T.muted)
-            t.background = if (on) roundBg(T.accent, 10, act) else null
-        }
+        seg.select(i)
         for (c in 0 until body.childCount) body.getChildAt(c).visibility = if (c == i) View.VISIBLE else View.GONE
         when (i) {
-            0 -> if (!loaded) list("") else renderBrowser()
+            0 -> { renderBrowser(); if (!loaded && Hub.state == Hub.State.ONLINE && Hub.can("files")) list("") }
             1 -> renderTransfers()
             2 -> renderClip()
         }
@@ -72,7 +59,7 @@ class FilesPage(act: MainActivity) : Page(act) {
 
     private fun renderBrowser() {
         browser.removeAllViews()
-        if (Hub.state != Hub.State.ONLINE) { browser.addView(muted(act, "Нет связи с ПК").apply { setPadding(0, act.dp(24), 0, 0) }); return }
+        if (Hub.state != Hub.State.ONLINE) { browser.addView(emptyState(act, "Файлы твоего компьютера", "Подключи ПК, чтобы открыть папки и передавать файлы.", "Подключить") { act.showSettings() }); return }
         if (!Hub.can("files")) { browser.addView(muted(act, "На ПК запрещён доступ к файлам (Настройки → Разрешения)").apply { setPadding(0, act.dp(24), 0, 0) }); return }
 
         val bar = hbox(act)

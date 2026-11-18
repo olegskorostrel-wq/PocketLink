@@ -26,6 +26,7 @@ class RemotePage(act: MainActivity) : Page(act) {
     private lateinit var volText: TextView
 
     override val root: View = vbox(act).also { r ->
+        r.addView(pageHeading(act, "Пульт"), lp(l = 12, r = 12, ctx = act))
         pad.callbacks = object : TouchpadView.Callbacks {
             override fun onMove(dx: Int, dy: Int) { Hub.conn?.move(dx, dy) }
             override fun onScroll(dx: Int, dy: Int) {
@@ -38,16 +39,27 @@ class RemotePage(act: MainActivity) : Page(act) {
 
         // кнопки мыши: крайние шире, чтобы попадать большим пальцем
         val mouse = hbox(act)
-        mouse.addView(btn(act, "ЛКМ") { click(0) }, lp(0, act.dp(50), 1.2f, r = 8, ctx = act))
+        mouse.addView(btn(act, "Левая") { click(0) }, lp(0, act.dp(50), 1.2f, r = 8, ctx = act))
         mouse.addView(btn(act, "Колесо") { click(2) }, lp(0, act.dp(50), 0.8f, r = 8, ctx = act))
-        mouse.addView(btn(act, "ПКМ") { click(1) }, lp(0, act.dp(50), 1.2f, ctx = act))
+        mouse.addView(btn(act, "Правая") { click(1) }, lp(0, act.dp(50), 1.2f, ctx = act))
         r.addView(mouse, lp(l = 12, t = 8, r = 12, ctx = act))
 
         // переключатель панелей
         r.addView(seg.view, lp(l = 12, t = 8, r = 12, ctx = act))
         r.addView(panel, lp(h = act.dp(184), l = 12, t = 4, r = 12, b = 8, ctx = act))
         buildPanels()
-        setMode(0)
+        setMode(1)
+        if (act.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            r.removeAllViews()
+            r.orientation = LinearLayout.HORIZONTAL
+            r.setPadding(act.dp(12), act.dp(4), act.dp(12), act.dp(8))
+            r.addView(pad, lp(0, -1, 1f, r = 12, ctx = act))
+            val controls = vbox(act)
+            controls.addView(mouse, lp(b = 8, ctx = act))
+            controls.addView(seg.view, lp(b = 8, ctx = act))
+            controls.addView(panel, lp(h = act.dp(184)))
+            r.addView(android.widget.ScrollView(act).apply { addView(controls) }, lp(0, -1, 1.2f))
+        }
     }
 
     private fun click(b: Int) {

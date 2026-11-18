@@ -38,6 +38,7 @@ class DevicePage(act: MainActivity) : Page(act) {
 
     private fun render() {
         body.removeAllViews()
+        body.addView(pageHeading(act, "Настройки"))
         // --- состояние ---
         val online = Hub.state == Hub.State.ONLINE
         val st = card(act, 16)
@@ -60,6 +61,23 @@ class DevicePage(act: MainActivity) : Page(act) {
         st.addView(head)
         body.addView(st)
 
+        val colors = arrayOf("Фиолетовый", "Синий", "Зелёный", "Оранжевый", "Розовый", "Графитовый")
+        val colorKeys = arrayOf("purple", "blue", "green", "orange", "pink", "graphite")
+        val modes = arrayOf("Как в системе", "Светлая", "Тёмная")
+        val modeKeys = arrayOf("system", "light", "dark")
+        val appearance = card(act, 4)
+        appearance.addView(actionRow(act, "Цвет оформления", colors[colorKeys.indexOf(Prefs.themeAccent).coerceAtLeast(0)]) {
+            AlertDialog.Builder(act).setTitle("Цвет оформления").setSingleChoiceItems(colors, colorKeys.indexOf(Prefs.themeAccent)) { dialog, index ->
+                Prefs.themeAccent = colorKeys[index]; dialog.dismiss(); act.recreate()
+            }.setNegativeButton("Отмена", null).show()
+        })
+        appearance.addView(actionRow(act, "Тема", modes[modeKeys.indexOf(Prefs.themeMode).coerceAtLeast(0)]) {
+            AlertDialog.Builder(act).setTitle("Тема").setSingleChoiceItems(modes, modeKeys.indexOf(Prefs.themeMode)) { dialog, index ->
+                Prefs.themeMode = modeKeys[index]; dialog.dismiss(); act.recreate()
+            }.setNegativeButton("Отмена", null).show()
+        }, lp(t = 4, ctx = act))
+        body.addView(sectionTitle(act, "Оформление"))
+        body.addView(appearance)
         body.addView(actionRow(act, "Обновления PocketLink", "Проверка и установка новых версий") { act.openUtility(UpdatesPage(act)) }, lp(t = 8, ctx = act))
 
         // --- запомненные ПК ---
@@ -117,10 +135,10 @@ class DevicePage(act: MainActivity) : Page(act) {
         s.addView(switchRow(act, "Фото", "Просмотр и скачивание на ПК", Prefs.sharePhotos) { Prefs.sharePhotos = it })
         s.addView(switchRow(act, "Буфер обмена", "Слать на ПК само, пока приложение открыто", Prefs.clipAuto) { Prefs.clipAuto = it })
         s.addView(switchRow(act, "Автоподключение", "Держать связь с последним ПК в фоне и после перезагрузки", Prefs.autoConnect) { Prefs.autoConnect = it })
-        body.addView(fold("Что делиться с ПК", s, false, "Уведомления, SMS, звонки, фото, буфер"), lp(t = 8, ctx = act))
+        body.addView(fold("Обмен с телефоном", s, false, "Уведомления, SMS, звонки, фото, буфер"), lp(t = 8, ctx = act))
 
         val controls = card(act, 12)
-        controls.addView(switchRow(act, "Кнопки громкости → ПК", "Пока открыт PocketLink: ±5% на ПК. При отсутствии связи громкость телефона не меняется. Снаружи приложения кнопки обычные.", Prefs.pcVolumeKeys) { Prefs.pcVolumeKeys = it })
+        controls.addView(switchRow(act, "Кнопки громкости", null, Prefs.pcVolumeKeys) { Prefs.pcVolumeKeys = it })
         controls.addView(actionRow(act, "YouTube — поиск и пульт", "Обложки, поиск и управление видео") { act.openUtility(YouTubePage(act)) })
         controls.addView(actionRow(act, "Микшер приложений ПК", "Громкость программ и вывод звука") { act.openUtility(MixerPage(act)) }, lp(t = 8, ctx = act))
         controls.addView(actionRow(act, "Окна и состояние ПК", "Активные окна, нагрузка и яркость") { act.openUtility(DesktopPage(act)) }, lp(t = 8, ctx = act))

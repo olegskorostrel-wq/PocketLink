@@ -88,20 +88,20 @@ class TouchpadView(context: Context) : View(context) {
         canvas.drawRoundRect(rect, radius, radius, surface)
         canvas.drawRoundRect(rect, radius, radius, border)
 
+        val grid = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = T.line; alpha = 130 }
+        val step = 22f * density
+        var x = step
+        while (x < width) { var y = step; while (y < height) { canvas.drawCircle(x, y, density, grid); y += step }; x += step }
         val cy = height / 2f
-        val step = hint.textSize * 1.45f
-        hint.typeface = UI_MEDIUM
+        val pointer = context.getDrawable(R.drawable.ic_pointer)?.mutate()
+        pointer?.setTint(T.accent)
+        pointer?.setBounds((width / 2f - 16 * density).toInt(), (cy - 46 * density).toInt(), (width / 2f + 16 * density).toInt(), (cy - 14 * density).toInt())
+        pointer?.draw(canvas)
         hint.color = T.muted
-        canvas.drawText("Тачпад", width / 2f, cy - step, hint)
+        hint.typeface = UI_MEDIUM
+        canvas.drawText("Сенсорная панель", width / 2f, cy + 20 * density, hint)
         hint.typeface = android.graphics.Typeface.DEFAULT
-        hint.alpha = 190
-        canvas.drawText("тап — клик, два пальца — прокрутка", width / 2f, cy, hint)
-        canvas.drawText("тап двумя пальцами — правый клик", width / 2f, cy + step, hint)
-        if (Hub.state != Hub.State.ONLINE) {
-            hint.color = T.accent
-            hint.typeface = UI_MEDIUM
-            canvas.drawText("Нет связи с ПК — подключись в «Настройках»", width / 2f, cy + step * 2.6f, hint)
-        }
+        canvas.drawText("Два пальца — прокрутка", width / 2f, cy + 42 * density, hint)
     }
 
     @SuppressLint("ClickableViewAccessibility")

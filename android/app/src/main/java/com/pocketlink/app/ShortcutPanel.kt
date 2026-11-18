@@ -31,72 +31,103 @@ class ShortcutPanel(private val act: MainActivity, private val refresh: () -> Un
             Item(o.optString("name"), o.optString("key"), (0 until mods.length()).map { mods.optString(it) })
         }.toMutableList()
     }
+    private var filter = 0
+    private var searchText = ""
+    private fun signature(item: Item) = (item.mods.sorted() + item.key).joinToString("+")
+    private fun favorites() = store.getStringSet("favorites", setOf("ctrl+c", "ctrl+v", "win+d"))?.toSet() ?: emptySet()
+
     private fun save(items: List<Item>) {
         store.edit().putString("items", JSONArray().also { a -> items.forEach { a.put(it.json()) } }.toString()).apply()
         refresh()
     }
     fun render(container: LinearLayout) {
         val ready = Hub.state == Hub.State.ONLINE && Hub.can("keyboard")
-        container.addView(tv(act, "Быстрые действия", 20f, T.text, true), lp(t = 12, b = 2, ctx = act))
-        container.addView(muted(act, "Нажми, чтобы отправить сочетание на ПК. Удержи, чтобы изменить.", 12.5f), lp(b = 12, ctx = act))
-        if (Hub.state != Hub.State.ONLINE) {
-            container.addView(infoBanner(act, "ПК не подключён: кнопки можно настроить, а выполнять — после подключения.", "Подключить") { act.showSettings() }, lp(b = 12, ctx = act))
+        container.addView(pageHeading(act, "Команды"), lp(t = 8, b = 8, ctx = act))
+        val search = input(act, "Найти свою команду").apply { setSingleLine(); setText(searchText) }
+        container.addView(search, lp(b = 10, ctx = act))
+        val tiles = vbox(act)
+        fun drawTiles() {
+            tiles.removeAllViews()
+            val all = items()
+            val selected = all.mapIndexed { index, item -> index to item }.filter { (_, item) ->
+                val category = when (filter) {
+                    1 -> signature(item) in favorites()
+                    2 -> presets.none { it.name == item.name && signature(it) == signature(item) }
+                    else -> true
+                }
+                category && (item.name + " " + item.combo).contains(searchText, ignoreCase = true)
+            }
+            val columns = if (act.resources.configuration.screenWidthDp >= 600) 3 else 2
+            selected.chunked(columns).forEach { group ->
+                val row = hbox(act)
+                group.forEachIndexed { col, (index, item) ->
+                    row.addView(tile(item, ready, index), lp(0, weight = 1f, r = if (col < columns - 1) 8 else 0, ctx = act))
+                }
+                if (group.size < columns) row.addView(View(act), lp(0, weight = (columns - group.size).toFloat()))
+                tiles.addView(row, lp(b = 8, ctx = act))
+            }
+            if (selected.isEmpty()) tiles.addView(infoBanner(act, if (searchText.isNotBlank()) "Команда не найдена" else if (filter == 1) "Удержи команду, чтобы добавить её в избранное" else "Создай свою кнопку или добавь её из справочника"))
         }
+        val categories = Segmented(act, listOf("Все", "Избранное", "Свои")) { filter = it; refresh() }
+        categories.select(filter)
+        container.addView(categories.view, lp(b = 12, ctx = act))
+        if (Hub.state != Hub.State.ONLINE) container.addView(infoBanner(act, "Нет подключения к ПК", "Подключить") { act.showSettings() }, lp(b = 12, ctx = act))
+        container.addView(tiles)
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { searchText = s.toString(); drawTiles() }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+        drawTiles()
         val actions = hbox(act)
         actions.addView(btn(act, "+  Своя кнопка", 1) { edit(null, null) }, lp(0, weight = 1f, r = 8, ctx = act))
-        actions.addView(btn(act, "Справочник", 0) {
+        actions.addView(btn(act, "Справочник", 3) {
             act.openUtility(ShortcutCatalogPage(act, { items().map { it.json() } }) { o ->
                 val mods = o.optJSONArray("mods") ?: JSONArray()
                 val item = Item(o.optString("name"), o.optString("key"), (0 until mods.length()).map { mods.optString(it) })
                 val all = items()
-                if (all.any { it.key == item.key && it.mods.toSet() == item.mods.toSet() }) Hub.toast("Такая кнопка уже есть на панели")
-                else { all.add(item); save(all); Hub.toast("Кнопка добавлена в ПК → Команды") }
+                if (all.any { signature(it) == signature(item) }) Hub.toast("Такая кнопка уже есть на панели")
+                else { all.add(item); save(all); Hub.toast("Кнопка добавлена") }
             })
         }, lp(0, weight = 1f, ctx = act))
-        container.addView(actions, lp(b = 12, ctx = act))
-        val all = items()
-        val columns = if (act.resources.configuration.screenWidthDp >= 600) 3 else 2
-        all.chunked(columns).forEachIndexed { rowIndex, rowItems ->
-            val row = hbox(act)
-            rowItems.forEachIndexed { col, item ->
-                val index = rowIndex * columns + col
-                row.addView(tile(item, ready, index), lp(0, -2, 1f, r = if (col < columns - 1) 8 else 0, ctx = act))
-            }
-            if (rowItems.size < columns) row.addView(View(act), lp(0, act.dp(78), (columns - rowItems.size).toFloat()))
-            container.addView(row, lp(b = 8, ctx = act))
-        }
+        container.addView(actions, lp(t = 4, b = 6, ctx = act))
     }
 
-    /** Плитка сочетания: название сверху, само сочетание акцентной подписью снизу. */
-    private fun tile(item: Item, ready: Boolean, index: Int): View = vbox(act, 10).apply {
-        gravity = android.view.Gravity.CENTER
-        background = ripple(roundBg(T.panel, 16, act, T.line, 1))
-        alpha = if (ready) 1f else .6f
+    private fun tile(item: Item, ready: Boolean, index: Int): View = vbox(act, 14).apply {
+        minimumHeight = act.dp(106)
+        background = ripple(roundBg(T.panel, 18, act, T.line, 1))
         isClickable = true
-        addView(tv(act, item.name, 14f, T.text, true).apply {
-            gravity = android.view.Gravity.CENTER
-            maxLines = 2
-            ellipsize = android.text.TextUtils.TruncateAt.END
-        })
-        addView(tv(act, item.combo, 11.5f, T.accent).apply {
-            typeface = android.graphics.Typeface.MONOSPACE
-            gravity = android.view.Gravity.CENTER
-            setSingleLine()
-            setPadding(act.dp(8), act.dp(2), act.dp(8), act.dp(2))
-            background = roundBg(T.accentSoft, 8, act)
-        }, lp(-2, -2, t = 6, ctx = act))
+        val top = hbox(act)
+        val icon = when (item.key) { "c", "v" -> R.drawable.ic_copy; "e" -> R.drawable.ic_folder; "d", "s" -> R.drawable.ic_display; else -> R.drawable.ic_tools }
+        top.addView(android.widget.ImageView(act).apply {
+            setImageResource(icon); imageTintList = android.content.res.ColorStateList.valueOf(T.accent)
+        }, lp(act.dp(22), act.dp(22)))
+        top.addView(View(act), lp(0, 1, 1f))
+        if (signature(item) in favorites()) top.addView(tv(act, "★", 13f, T.accent))
+        addView(top, lp(b = 8, ctx = act))
+        addView(tv(act, item.name, 14f, T.text, true).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
+        addView(tv(act, item.combo, 11f, T.accent).apply {
+            typeface = android.graphics.Typeface.MONOSPACE; setSingleLine(); ellipsize = android.text.TextUtils.TruncateAt.END
+        }, lp(t = 4, ctx = act))
         setOnClickListener {
             when {
                 Hub.state != Hub.State.ONLINE -> Hub.toast("Подключи ПК в настройках")
                 !Hub.can("keyboard") -> Hub.toast("Разреши клавиатуру в PocketLink на ПК")
-                else -> {
-                    Hub.send(JSONObject().put("t", "key").put("k", item.key).put("m", JSONArray(item.mods)))
-                    Hub.toast("Отправлено: ${item.combo}")
-                }
+                else -> Hub.send(JSONObject().put("t", "key").put("k", item.key).put("m", JSONArray(item.mods)))
             }
         }
-        setOnLongClickListener { edit(index, item); true }
-        contentDescription = item.name + ", " + item.combo + ". Удерживай для изменения"
+        setOnLongClickListener {
+            val starred = signature(item) in favorites()
+            AlertDialog.Builder(act).setTitle(item.name).setItems(arrayOf("Изменить", if (starred) "Убрать из избранного" else "В избранное", "Удалить")) { _, choice ->
+                when (choice) {
+                    0 -> edit(index, item)
+                    1 -> { val next = favorites().toMutableSet(); if (starred) next.remove(signature(item)) else next.add(signature(item)); store.edit().putStringSet("favorites", next).apply(); refresh() }
+                    2 -> { val next = items(); next.removeAt(index); save(next) }
+                }
+            }.show()
+            true
+        }
+        contentDescription = item.name + ", " + item.combo
     }
 
     private fun edit(index: Int?, old: Item?) {

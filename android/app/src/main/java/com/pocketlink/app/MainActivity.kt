@@ -35,6 +35,8 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     private var current = -1
     private var utility: Page? = null
     private var utilityOrigin = 4
+    private var lastOrientation = 0
+    private var lastFontScale = 0f
     private val capturedVolumeKeys = mutableSetOf<Int>()
     private var lastVolumeCommandAt = Long.MIN_VALUE / 2
 
@@ -96,11 +98,38 @@ class MainActivity : ComponentActivity(), Hub.Observer {
 
     // ---------- жизненный цикл ----------
 
+    override fun attachBaseContext(newBase: Context) {
+        Prefs.init(newBase)
+        if (Prefs.themeMode == "system") { super.attachBaseContext(newBase); return }
+        val config = android.content.res.Configuration()
+        when (Prefs.themeMode) {
+            "dark" -> config.uiMode = (config.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or android.content.res.Configuration.UI_MODE_NIGHT_YES
+            "light" -> config.uiMode = (config.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or android.content.res.Configuration.UI_MODE_NIGHT_NO
+        }
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val systemDark = (newConfig.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        if ((Prefs.themeMode == "system" && systemDark != T.dark) || newConfig.orientation != lastOrientation || newConfig.fontScale != lastFontScale) recreate()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(when (Prefs.themeAccent) {
+            "blue" -> R.style.Theme_PocketLink_Blue
+            "green" -> R.style.Theme_PocketLink_Green
+            "orange" -> R.style.Theme_PocketLink_Orange
+            "pink" -> R.style.Theme_PocketLink_Pink
+            "graphite" -> R.style.Theme_PocketLink_Graphite
+            else -> R.style.Theme_PocketLink
+        })
         super.onCreate(savedInstanceState)
         Prefs.init(this)
         Hub.init(this)
         T.update(this)
+        lastOrientation = resources.configuration.orientation
+        lastFontScale = resources.configuration.fontScale
         Notifier.createChannels(this)
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(T.bg))
         WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -204,7 +233,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
             capturedVolumeKeys.add(key)
             if (!Prefs.pcVolumeKeys || event.isCanceled) return true
             when {
-                Hub.state != Hub.State.ONLINE -> if (event.repeatCount == 0) Hub.toast("Нет связи с ПК — громкость телефона не менялась")
+                Hub.state != Hub.State.ONLINE -> if (event.repeatCount == 0) Hub.toast("Нет связи с ПК")
                 !Hub.can("audio") -> if (event.repeatCount == 0) Hub.toast("Разреши управление звуком в PocketLink на ПК")
                 event.repeatCount == 0 || event.eventTime - lastVolumeCommandAt >= 150 -> {
                     lastVolumeCommandAt = event.eventTime
@@ -236,8 +265,8 @@ class MainActivity : ComponentActivity(), Hub.Observer {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(4), dp(6), dp(4), dp(6))
         }
-        val items = listOf("Пульт" to R.drawable.ic_remote, "Файлы" to R.drawable.ic_files, "ПК" to R.drawable.ic_tools,
-            "Экран" to R.drawable.ic_screen, "Настройки" to R.drawable.ic_device)
+        val items = listOf("Пульт" to R.drawable.ic_pointer, "Файлы" to R.drawable.ic_files, "ПК" to R.drawable.ic_tools,
+            "Экран" to R.drawable.ic_display, "Настройки" to R.drawable.ic_device)
         items.forEachIndexed { i, (name, icon) ->
             val col = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -258,7 +287,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
                 setPadding(dp(2), dp(3), dp(2), 0)
                 includeFontPadding = false
             }
-            col.addView(pill, LinearLayout.LayoutParams(dp(60), dp(32)))
+            col.addView(pill, LinearLayout.LayoutParams(dp(54), dp(34)))
             col.addView(label, LinearLayout.LayoutParams(-1, -2))
             navItems += NavItem(pill, img, label)
             nav.addView(col, lp(0, weight = 1f))

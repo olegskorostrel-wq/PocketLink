@@ -22,16 +22,21 @@ class YouTubePage(act: MainActivity) : Page(act) {
 
     override val root: View = ScrollView(act).apply {
         val body = vbox(act, 12)
-        body.addView(title)
-        body.addView(stateText)
+        body.addView(pageHeading(act, "YouTube"))
+        val player = card(act, 16)
+        player.addView(title)
+        player.addView(stateText, lp(t = 4, b = 12, ctx = act))
         val query = input(act, "Найти видео").apply { setSingleLine() }
-        body.addView(query)
-        body.addView(btn(act, "Найти", 1) { command("search", "query", query.text.toString().trim()) })
+        val search = hbox(act)
+        search.addView(query, lp(0, weight = 1f, r = 8, ctx = act))
+        search.addView(btn(act, "Найти", 1) { command("search", "query", query.text.toString().trim()) }, lp(-2))
+        body.addView(search, lp(b = 12, ctx = act))
         val playback = hbox(act)
-        playback.addView(btn(act, "−10 с") { command("seek", "value", maxOf(0, position - 10)) }, lp(0, weight = 1f))
+        playback.addView(btn(act, "−10 с") { command("seek", "value", maxOf(0, position - 10)) }, lp(0, weight = 1f, r = 4, ctx = act))
         playback.addView(btn(act, "▶ / Ⅱ") { command("toggle") }, lp(0, weight = 1f))
         playback.addView(btn(act, "+10 с") { command("seek", "value", minOf(duration, position + 10)) }, lp(0, weight = 1f))
-        body.addView(playback)
+        spaceButtons(playback)
+        player.addView(playback, lp(t = 8, ctx = act))
         scrubber.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {}
             override fun onStartTrackingTouch(bar: SeekBar) { dragging = true }
@@ -40,19 +45,21 @@ class YouTubePage(act: MainActivity) : Page(act) {
                 dragging = false
             }
         })
-        body.addView(scrubber)
+        player.addView(scrubber, lp(t = 8, ctx = act))
         val buttons = hbox(act)
         buttons.addView(btn(act, "Субтитры") { command("captions") }, lp(0, weight = 1f))
         buttons.addView(btn(act, "Театр") { command("theater") }, lp(0, weight = 1f))
         buttons.addView(btn(act, "Далее") { command("next") }, lp(0, weight = 1f))
-        body.addView(buttons)
-        body.addView(btn(act, "На весь экран ПК") { command("fullscreen") })
+        spaceButtons(buttons)
+        player.addView(buttons, lp(t = 8, ctx = act))
+        player.addView(btn(act, "На весь экран ПК", 3) { command("fullscreen") }, lp(t = 8, ctx = act))
         val speed = hbox(act)
         for (rate in listOf(0.5, 1.0, 1.5, 2.0))
             speed.addView(btn(act, rate.toString() + "×") { command("rate", "value", rate) }, lp(0, weight = 1f))
-        body.addView(speed)
-        body.addView(tv(act, "Громкость YouTube", 14f))
-        body.addView(SeekBar(act).apply {
+        spaceButtons(speed)
+        player.addView(speed, lp(t = 8, ctx = act))
+        player.addView(tv(act, "Громкость YouTube", 14f), lp(t = 14, ctx = act))
+        player.addView(SeekBar(act).apply {
             max = 100
             progress = 100
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -61,8 +68,14 @@ class YouTubePage(act: MainActivity) : Page(act) {
                 override fun onStopTrackingTouch(bar: SeekBar) { command("volume", "value", bar.progress) }
             })
         })
+        body.addView(player)
+        body.addView(sectionTitle(act, "Результаты поиска"))
         body.addView(items)
         addView(body)
+    }
+
+    private fun spaceButtons(row: android.widget.LinearLayout) {
+        for (i in 0 until row.childCount - 1) (row.getChildAt(i).layoutParams as android.widget.LinearLayout.LayoutParams).rightMargin = act.dp(6)
     }
 
     private fun command(action: String, key: String? = null, value: Any? = null) {
@@ -80,7 +93,7 @@ class YouTubePage(act: MainActivity) : Page(act) {
         val state = data as? JSONObject ?: return
         if (state.optString("t") != "youtube.state") return
         stateText.text = state.optString("error").ifEmpty {
-            if (state.optBoolean("connected")) state.optString("channel") else "Подключи расширение PocketLink в Firefox на ПК"
+            if (state.optBoolean("connected")) state.optString("channel") else "Подключи расширение PocketLink в браузере на ПК"
         }
         title.text = state.optString("title").ifEmpty { "YouTube на ПК" }
         duration = state.optDouble("duration", 0.0).toInt().coerceAtLeast(0)
