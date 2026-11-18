@@ -1,16 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Простой знак: скруглённый «тачпад» с точкой-курсором. Безопасная зона адаптивной иконки 66x66 по центру 108x108. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M34,34 L74,34 Q78,34 78,38 L78,70 Q78,74 74,74 L34,74 Q30,74 30,70 L30,38 Q30,34 34,34 Z"
-        android:strokeColor="#5AA9FF"
-        android:strokeWidth="4" />
-    <path
-        android:fillColor="#5AA9FF"
-        android:pathData="M54,54 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="512" android:viewportHeight="512">
+ <path android:fillColor="#9C5BF6" android:pathData="M256,112 L324,112 C386,112 402,148 402,192 C402,240 369,271 323,271 L294,271 C269,271 253,290 253,315 L253,368 L198,406 L198,315 C198,249 234,216 294,216 L324,216 C342,216 348,205 348,191 C348,177 339,166 323,166 L256,166 C239,166 229,156 229,139 C229,122 239,112 256,112 Z"/>
+ <path android:fillColor="#FAFAFF" android:pathData="M142,402 L142,272 C142,222 168,193 217,193 L296,193 C331,193 331,247 296,247 L220,247 C204,247 196,256 196,274 L196,402 Z"/>
 </vector>

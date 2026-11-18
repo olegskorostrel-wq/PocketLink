@@ -107,10 +107,10 @@ class PcConnection(private val listener: Listener) {
                 val throughRelay = Prefs.useRelay && mode == Proto.AUTH_KEY
                 val raw = if (throughRelay) {
                     RelayTunnel().also { tunnel = it }.connect(Prefs.relayUrl, Prefs.relayRoom, Prefs.relayToken)
-                } else Socket()
+                } else LocalNetwork.socket(host)
                 socket = raw
                 raw.tcpNoDelay = true
-                if (!throughRelay) raw.connect(InetSocketAddress(host, Proto.TCP_PORT), 4000)
+                if (!throughRelay) raw.connect(InetSocketAddress(host, Proto.TCP_PORT), 8000)
                 raw.soTimeout = 8000
                 val s = PinnedTls.connect(raw, host, fingerprint)
                 socket = s
@@ -143,7 +143,7 @@ class PcConnection(private val listener: Listener) {
                 }
                 if (rType != Proto.AUTH_OK || rData.size < 10) throw IOException("bad auth reply")
 
-                s.soTimeout = 30000 // PING идёт раз в 5 с, 30 с тишины = связь потеряна
+                s.soTimeout = 45000 // PING идёт раз в 5 с, 30 с тишины = связь потеряна
 
                 isConnected = true
                 downloads = ResumableDownload(Hub.app, fingerprint, ::sendJson, listener::onTransfer)
@@ -296,7 +296,9 @@ class PcConnection(private val listener: Listener) {
         var n = raw.substringAfterLast('/').substringAfterLast('\\')
         n = n.filter { it >= ' ' && it !in "<>:\"|?*" }.trim().trimEnd('.')
         if (n.isEmpty()) n = "file"
-        return n.take(150)
+        if (n.length <= 220) return n
+        val ext = n.substringAfterLast('.', "").take(20).let { if (it.isEmpty()) "" else ".$it" }
+        return n.substringBeforeLast('.', n).take(220 - ext.length) + ext
     }
 
     private companion object {

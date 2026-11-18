@@ -14,12 +14,17 @@ class ToolsPage(act: MainActivity) : Page(act) {
     private var mode = 0
     private var apps: List<JSONObject> = emptyList()
     private var procs: List<JSONObject> = emptyList()
+    private var appsSearch = ""
     private var appsLoaded = false
     private var commandProfile = "Все"
 
     private val shortcuts = ShortcutPanel(act) { renderCommands() }
 
     override val root: View = vbox(act).also { r ->
+        val shortcutsRow = hbox(act)
+        shortcutsRow.addView(btn(act, "Файлы") { act.openUtility(FilesPage(act)) }, lp(0, weight = 1f, r = 8, ctx = act))
+        shortcutsRow.addView(btn(act, "Окна и состояние") { act.openUtility(DesktopPage(act)) }, lp(0, weight = 1f))
+        r.addView(shortcutsRow, lp(l = 12, t = 8, r = 12, ctx = act))
         r.addView(seg.view, lp(l = 12, t = 4, r = 12, b = 6, ctx = act))
         for (v in views) body.addView(ScrollView(act).apply { isFillViewport = true; addView(v) })
         r.addView(body, lp(h = 0, weight = 1f, l = 12, r = 12, ctx = act))
@@ -105,8 +110,24 @@ class ToolsPage(act: MainActivity) : Page(act) {
     private fun renderApps() {
         val v = views[1]
         if (offline(v, "commands")) return
-        v.addView(muted(act, if (apps.isEmpty()) "Загружаю список программ…" else "Нажми, чтобы запустить на ПК").apply { setPadding(act.dp(4), act.dp(8), 0, act.dp(4)) })
-        for (a in apps) v.addView(listRow(a.optString("n"), "") { Hub.send(JSONObject().put("t", "apps.run").put("id", a.optInt("id"))); Hub.toast("Запускаю: ${a.optString("n")}") })
+        v.addView(muted(act, if (!appsLoaded) "Загружаю список программ…" else "Нажми, чтобы запустить на ПК").apply { setPadding(act.dp(4), act.dp(8), 0, act.dp(4)) })
+        v.addView(btn(act, "Обновить программы", 3) { appsLoaded = false; Hub.send("apps.get") }, lp(t = 6, ctx = act))
+        val result = vbox(act)
+        fun showResults() {
+            result.removeAllViews()
+            val filtered = apps.filter { it.optString("n").contains(appsSearch, ignoreCase = true) }
+            if (appsLoaded && filtered.isEmpty()) result.addView(muted(act, "Программы не найдены"))
+            for (a in filtered) result.addView(listRow(a.optString("n"), "") { Hub.send("apps.run", "id" to a.optInt("id")); Hub.toast("Запускаю: " + a.optString("n")) })
+        }
+        v.addView(android.widget.EditText(act).apply {
+            hint = "Найти программу"; setSingleLine(); setText(appsSearch); setTextColor(T.text); setHintTextColor(T.muted)
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { appsSearch = s?.toString().orEmpty(); showResults() }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
+        }, lp(t = 8, b = 8, ctx = act))
+        v.addView(result); showResults()
     }
 
     private fun renderProcs() {
@@ -165,7 +186,7 @@ class ToolsPage(act: MainActivity) : Page(act) {
         v.addView(btn(act, "Отменить выключение", 3) { Hub.send(JSONObject().put("t", "power").put("action", "abort").put("delay", 0)) }, lp(t = 8, ctx = act))
     }
 
-    override fun onShow() { render() }
+    override fun onShow() { appsLoaded = false; render() }
 
     override fun onHub(ev: String, data: Any?) {
         when (ev) {

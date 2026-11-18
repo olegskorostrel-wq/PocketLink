@@ -133,18 +133,13 @@ class DevicePage(act: MainActivity) : Page(act) {
         s.addView(switchRow(act, "Уведомления", "Показывать на ПК, отвечать и закрывать оттуда", Prefs.shareNotifs) { Prefs.shareNotifs = it; if (it && Hub.state == Hub.State.ONLINE) NotifMirror.syncAll() })
         s.addView(switchRow(act, "SMS", "Читать и отправлять с ПК", Prefs.shareSms) { Prefs.shareSms = it; resetFeatures() })
         s.addView(switchRow(act, "Звонки", "Принимать, сбрасывать и набирать с ПК", Prefs.shareCalls) { Prefs.shareCalls = it; resetFeatures() })
-        s.addView(switchRow(act, "Фото", "Просмотр и скачивание на ПК", Prefs.sharePhotos) { Prefs.sharePhotos = it })
+        s.addView(switchRow(act, "Фото и видео", "Просмотр и скачивание на ПК", Prefs.sharePhotos) { Prefs.sharePhotos = it })
         s.addView(switchRow(act, "Буфер обмена", "Слать на ПК само, пока приложение открыто", Prefs.clipAuto) { Prefs.clipAuto = it })
         s.addView(switchRow(act, "Автоподключение", "Держать связь с последним ПК в фоне и после перезагрузки", Prefs.autoConnect) { Prefs.autoConnect = it })
         body.addView(fold("Обмен с телефоном", s, false, "Уведомления, SMS, звонки, фото, буфер"), lp(t = 8, ctx = act))
 
         val controls = card(act, 12)
         controls.addView(switchRow(act, "Кнопки громкости", null, Prefs.pcVolumeKeys) { Prefs.pcVolumeKeys = it })
-        controls.addView(actionRow(act, "YouTube — поиск и пульт", "Обложки, поиск и управление видео") { act.openUtility(YouTubePage(act)) })
-        controls.addView(actionRow(act, "Микшер приложений ПК", "Громкость программ и вывод звука") { act.openUtility(MixerPage(act)) }, lp(t = 8, ctx = act))
-        controls.addView(actionRow(act, "Окна и состояние ПК", "Активные окна, нагрузка и яркость") { act.openUtility(DesktopPage(act)) }, lp(t = 8, ctx = act))
-        controls.addView(actionRow(act, "Bluetooth-пульт и геймпад", "Подключение по Bluetooth") { act.openUtility(BluetoothPage(act)) }, lp(t = 8, ctx = act))
-        controls.addView(actionRow(act, "Телефон как микрофон ПК", "Передача голоса на компьютер") { act.openUtility(MicrophonePage(act)) }, lp(t = 8, ctx = act))
         controls.addView(actionRow(act, "Настройки тачпада", "Чувствительность и прокрутка") {
             val box = vbox(act, 14)
             val label = tv(act, "Чувствительность", 15f)
@@ -190,8 +185,8 @@ class DevicePage(act: MainActivity) : Page(act) {
             act.askPerms(arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG,
                 Manifest.permission.ANSWER_PHONE_CALLS, Manifest.permission.CALL_PHONE)) { resetFeatures() }
         })
-        p.addView(permRow("Фото", Features.hasPhotos()) {
-            act.askPerms(arrayOf(if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE)) { render() }
+        p.addView(permRow("Фото и видео", Features.hasPhotos() && Features.hasVideos()) {
+            act.askPerms(if (Build.VERSION.SDK_INT >= 34) arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) else if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO) else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)) { render() }
         })
         if (Build.VERSION.SDK_INT >= 33) {
             p.addView(permRow("Показ уведомлений приложения", Features.granted(Manifest.permission.POST_NOTIFICATIONS)) {

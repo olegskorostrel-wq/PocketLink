@@ -15,6 +15,7 @@ class YouTubePage(act: MainActivity) : Page(act) {
     private val items = vbox(act)
     private var visible = false
     private var resultKey = ""
+    private val thumbnails = mutableMapOf<String, ImageView>()
     private var duration = 0
     private var position = 0
     private val scrubber = SeekBar(act)
@@ -91,6 +92,21 @@ class YouTubePage(act: MainActivity) : Page(act) {
     override fun onHub(ev: String, data: Any?) {
         if (!visible || ev != "json") return
         val state = data as? JSONObject ?: return
+        if (state.optString("t") == "youtube.thumb") {
+            val image = thumbnails[state.optString("id")] ?: return
+            val encoded = state.optString("data")
+            if (encoded.isNotEmpty() && encoded.length <= 280000) Hub.work.execute {
+                runCatching {
+                    val bytes = android.util.Base64.decode(encoded, android.util.Base64.DEFAULT)
+                    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                    if (options.outWidth !in 1..2048 || options.outHeight !in 1..2048) return@runCatching
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    Hub.main.post { if (thumbnails[state.optString("id")] === image) image.setImageBitmap(bitmap) }
+                }
+            }
+            return
+        }
         if (state.optString("t") != "youtube.state") return
         stateText.text = state.optString("error").ifEmpty {
             if (state.optBoolean("connected")) state.optString("channel") else "Подключи расширение PocketLink в браузере на ПК"
@@ -104,6 +120,7 @@ class YouTubePage(act: MainActivity) : Page(act) {
         if (resultKey == nextKey) return
         resultKey = nextKey
         items.removeAllViews()
+        thumbnails.clear()
         for (index in 0 until minOf(results.length(), 24)) {
             val result = results.optJSONObject(index) ?: continue
             val id = result.optString("id")
@@ -115,7 +132,9 @@ class YouTubePage(act: MainActivity) : Page(act) {
             card.addView(muted(act, result.optString("channel"), 12f))
             card.setOnClickListener { command("play", "id", id) }
             items.addView(card, lp(t = 8, ctx = act))
-            Hub.work.execute {
+            thumbnails[id] = image
+            Hub.send("youtube.thumb", "id" to id)
+            Hub.main.postDelayed({ if (image.drawable == null && resultKey == nextKey) Hub.work.execute {
                 var connection: HttpsURLConnection? = null
                 try {
                     connection = URL("https://i.ytimg.com/vi/$id/mqdefault.jpg").openConnection() as HttpsURLConnection
@@ -126,7 +145,7 @@ class YouTubePage(act: MainActivity) : Page(act) {
                     Hub.main.post { if (resultKey == nextKey) image.setImageBitmap(bitmap) }
                 } catch (_: Exception) {
                 } finally { connection?.disconnect() }
-            }
+            } }, 6500)
         }
     }
 }

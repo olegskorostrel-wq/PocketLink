@@ -36,10 +36,12 @@ object Features {
     fun hasSms() = granted(Manifest.permission.READ_SMS)
     fun hasCalls() = granted(Manifest.permission.READ_PHONE_STATE)
     fun hasPhotos() =
-        if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.READ_MEDIA_IMAGES) else granted(Manifest.permission.READ_EXTERNAL_STORAGE)
+        if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.READ_MEDIA_IMAGES) || Build.VERSION.SDK_INT >= 34 && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) else granted(Manifest.permission.READ_EXTERNAL_STORAGE)
+
+    fun hasVideos() = if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.READ_MEDIA_VIDEO) || Build.VERSION.SDK_INT >= 34 && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) else granted(Manifest.permission.READ_EXTERNAL_STORAGE)
 
     fun permsJson() = JSONObject()
-        .put("notif", hasNotifAccess()).put("sms", hasSms()).put("calls", hasCalls()).put("photos", hasPhotos())
+        .put("notif", hasNotifAccess()).put("sms", hasSms()).put("calls", hasCalls()).put("photos", hasPhotos() || hasVideos())
 
     // ---------- батарея ----------
 

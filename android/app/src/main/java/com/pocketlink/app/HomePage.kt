@@ -39,11 +39,18 @@ class HomePage(act: MainActivity) : Page(act) {
         } })
         body.addView(btn(act, "Буфер ПК → на телефон") { online("clipboard") { Hub.send("clip.pc.request") } }, lp(t = 8, ctx = act))
         body.addView(sectionTitle(act, "Часто нужно"))
+        body.addView(btn(act, "Файлы и передача") { act.openUtility(FilesPage(act)) })
         body.addView(btn(act, "Тачпад, клавиатура и мультимедиа") { act.openUtility(RemotePage(act)) })
         body.addView(btn(act, "YouTube — поиск и пульт") { act.openUtility(YouTubePage(act)) }, lp(t = 8, ctx = act))
         body.addView(btn(act, "Окна и состояние ПК") { act.openUtility(DesktopPage(act)) }, lp(t = 8, ctx = act))
         body.addView(btn(act, "Заблокировать ПК") { online("power") { Hub.send("power", "action" to "lock", "delay" to 0) } }, lp(t = 8, ctx = act))
         body.addView(btn(act, "Спящий режим") { power("sleep", "Перевести ПК в спящий режим?") }, lp(t = 8, ctx = act))
+        body.addView(sectionTitle(act, "Телефон и устройства"))
+        body.addView(btn(act, "Заряд мыши и наушников") { act.openUtility(PeripheralPage(act)) }, lp(b = 8, ctx = act))
+        body.addView(btn(act, "Телефон как веб-камера для Discord") { act.openUtility(WebcamPage(act)) }, lp(b = 8, ctx = act))
+        body.addView(btn(act, "Bluetooth-пульт и геймпад") { act.openUtility(BluetoothPage(act)) })
+        body.addView(btn(act, "Телефон как микрофон ПК") { act.openUtility(MicrophonePage(act)) }, lp(t = 8, ctx = act))
+        body.addView(btn(act, "Выход звука ПК и микшер") { act.openUtility(MixerPage(act)) }, lp(t = 8, ctx = act))
         if (Hub.state != Hub.State.ONLINE) body.addView(btn(act, "Подключить ПК", 1) { act.showSettings() }, lp(t = 12, ctx = act))
     }
 }

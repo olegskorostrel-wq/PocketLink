@@ -80,19 +80,6 @@ class BluetoothPage(act: MainActivity) : Page(act) {
             keys.addView(btn(act, label) { keyboard(code); keyboard(0) }, lp(0, weight = 1f))
         body.addView(keys)
         body.addView(muted(act, "Геймпад Bluetooth · направления и кнопки", 12f))
-        body.addView(btn(act, "Настроить кнопки геймпада") {
-            val names = arrayOf("A", "B", "X", "Y", "L", "R", "Start", "Select")
-            AlertDialog.Builder(act).setTitle("Переназначить кнопку").setItems(names) { _, index ->
-                AlertDialog.Builder(act).setTitle(names[index]).setSingleChoiceItems(
-                    Array(16) { "Кнопка " + (it + 1) }, Prefs.gamepadButton(index)
-                ) { dialog, selected ->
-                    gameButtons = 0
-                    gamepad()
-                    Prefs.setGamepadButton(index, selected)
-                    dialog.dismiss()
-                }.show()
-            }.show()
-        })
         val arrows = hbox(act)
         for ((label, x, y) in listOf(Triple("←", -127, 0), Triple("↑", 0, -127), Triple("↓", 0, 127), Triple("→", 127, 0))) {
             arrows.addView(held(label, { axisX = x; axisY = y; gamepad() }, { axisX = 0; axisY = 0; gamepad() }), lp(0, weight = 1f))
@@ -123,6 +110,21 @@ class BluetoothPage(act: MainActivity) : Page(act) {
             })
         }
     }
+
+    override val hasSettings = true
+    override fun openSettings() {
+            val names = arrayOf("A", "B", "X", "Y", "L", "R", "Start", "Select")
+            AlertDialog.Builder(act).setTitle("Переназначить кнопку").setItems(names) { _, index ->
+                AlertDialog.Builder(act).setTitle(names[index]).setSingleChoiceItems(
+                    Array(16) { "Кнопка " + (it + 1) }, Prefs.gamepadButton(index)
+                ) { dialog, selected ->
+                    gameButtons = 0
+                    gamepad()
+                    Prefs.setGamepadButton(index, selected)
+                    dialog.dismiss()
+                }.show()
+            }.show()
+            }
 
     private var scrollRemainder = 0
     private fun held(label: String, down: () -> Unit, up: () -> Unit): View = btn(act, label) {}.apply {

@@ -198,6 +198,8 @@ abstract class Page(val act: MainActivity) {
     open fun onShow() {}
     open fun onHide() {}
     open fun onHub(ev: String, data: Any?) {}
+    open val hasSettings: Boolean = false
+    open fun openSettings() {}
     protected val ctx: Context get() = act
 }
 

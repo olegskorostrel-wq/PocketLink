@@ -13,12 +13,13 @@ object Discovery {
         val result = mutableListOf<Found>()
         try {
             DatagramSocket().use { socket ->
+                LocalNetwork.bind(socket)
                 socket.broadcast = true
                 socket.soTimeout = 300
                 val msg = "PLDISCOVER".toByteArray()
-                socket.send(
-                    DatagramPacket(msg, msg.size, InetAddress.getByName("255.255.255.255"), Proto.DISCOVERY_PORT)
-                )
+                for (address in LocalNetwork.broadcasts()) runCatching {
+                    socket.send(DatagramPacket(msg, msg.size, address, Proto.DISCOVERY_PORT))
+                }
                 val end = System.currentTimeMillis() + timeoutMs
                 val buf = ByteArray(256)
                 while (System.currentTimeMillis() < end) {

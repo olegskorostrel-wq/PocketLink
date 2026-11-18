@@ -130,16 +130,32 @@ class ScreenPage(act: MainActivity) : Page(act) {
     private val view = PcScreenView(act)
     private val status = muted(act, "")
     private var running = false
+    private var shown = false
+    private lateinit var heading: View
+    private lateinit var controls: View
+    override val hasSettings = true
+    override fun openSettings() = FunctionSettings.screen(act) { if (running) { stop(); start() } }
+    fun orientationChanged() = layoutMode()
+    private fun layoutMode() {
+        val full = shown && running && act.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        act.setScreenImmersive(full)
+        if (::heading.isInitialized) heading.visibility = if (full) View.GONE else View.VISIBLE
+        if (::controls.isInitialized) controls.visibility = if (full) View.GONE else View.VISIBLE
+        (view.layoutParams as? android.widget.LinearLayout.LayoutParams)?.apply { val pad = if (full) 0 else act.dp(12); setMargins(pad, 0, pad, pad); view.layoutParams = this }
+        view.clipToOutline = !full
+    }
     private lateinit var toggle: TextView
 
     override val root: View = android.widget.LinearLayout(act).also { r ->
         r.orientation = android.widget.LinearLayout.VERTICAL
-        r.addView(pageHeading(act, "Экран ПК"), lp(l = 12, r = 12, ctx = act))
+        heading = pageHeading(act, "Экран ПК")
+        r.addView(heading, lp(l = 12, r = 12, ctx = act))
         val bar = hbox(act, 8)
         toggle = btn(act, "Старт", 1) { if (running) stop() else start() }
         bar.addView(toggle, lp(-2, -2, r = 8, ctx = act))
         bar.addView(btn(act, "Монитор") { Hub.send("screen.monitors") }, lp(-2, -2, r = 8, ctx = act))
         bar.addView(status, lp(0, weight = 1f))
+        controls = bar
         r.addView(bar)
         view.background = roundBg(T.panel, 20, act, T.line, 1)
         view.clipToOutline = true
@@ -159,6 +175,7 @@ class ScreenPage(act: MainActivity) : Page(act) {
         view.clear()
         Hub.send(JSONObject().put("t", "screen.start").put("w", Prefs.screenWidth).put("q", Prefs.screenQuality).put("fps", Prefs.screenFps).put("mon", Prefs.screenMonitor))
         view.invalidate()
+        layoutMode()
     }
 
     private fun stop() {
@@ -168,10 +185,11 @@ class ScreenPage(act: MainActivity) : Page(act) {
         status.text = ""
         view.hint = "Экран ПК"
         view.clear()
+        layoutMode()
     }
 
-    override fun onShow() { if (!running) status.text = "Увеличение и сдвиг — двумя пальцами. Качество — в настройках." }
-    override fun onHide() { if (running) stop() }
+    override fun onShow() { shown = true; layoutMode(); if (!running) status.text = "Поверните телефон боком для полного экрана. Настройки — ⚙." }
+    override fun onHide() { shown = false; if (running) stop(); act.setScreenImmersive(false) }
 
     override fun onHub(ev: String, data: Any?) {
         when (ev) {

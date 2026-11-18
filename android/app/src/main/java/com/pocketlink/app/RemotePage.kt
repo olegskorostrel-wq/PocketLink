@@ -13,6 +13,8 @@ import org.json.JSONObject
 
 /** Вкладка «Пульт»: тачпад, клавиатура, медиа и громкость, показ презентаций. */
 class RemotePage(act: MainActivity) : Page(act) {
+    override val hasSettings = true
+    override fun openSettings() = FunctionSettings.remote(act)
     private val pad = TouchpadView(act)
     private val panel = FrameLayout(act)
     private val seg = Segmented(act, listOf("Клавиши", "Медиа", "Показ")) { setMode(it) }
@@ -44,6 +46,9 @@ class RemotePage(act: MainActivity) : Page(act) {
         mouse.addView(btn(act, "Правая") { click(1) }, lp(0, act.dp(50), 1.2f, ctx = act))
         r.addView(mouse, lp(l = 12, t = 8, r = 12, ctx = act))
 
+        val output = btn(act, "Звук ПК: наушники, монитор и микшер") { act.openUtility(MixerPage(act)) }
+        r.addView(output, lp(l = 12, t = 8, r = 12, ctx = act))
+
         // переключатель панелей
         r.addView(seg.view, lp(l = 12, t = 8, r = 12, ctx = act))
         r.addView(panel, lp(h = act.dp(184), l = 12, t = 4, r = 12, b = 8, ctx = act))
@@ -56,6 +61,7 @@ class RemotePage(act: MainActivity) : Page(act) {
             r.addView(pad, lp(0, -1, 1f, r = 12, ctx = act))
             val controls = vbox(act)
             controls.addView(mouse, lp(b = 8, ctx = act))
+            controls.addView(output, lp(b = 8, ctx = act))
             controls.addView(seg.view, lp(b = 8, ctx = act))
             controls.addView(panel, lp(h = act.dp(184)))
             r.addView(android.widget.ScrollView(act).apply { addView(controls) }, lp(0, -1, 1.2f))

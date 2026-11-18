@@ -31,6 +31,9 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     private lateinit var statusText: TextView
     private class NavItem(val pill: FrameLayout, val img: ImageView, val label: TextView)
     private val navItems = mutableListOf<NavItem>()
+    private lateinit var topBar: View
+    private lateinit var navigationBar: View
+    private lateinit var functionSettings: View
     private lateinit var statusPill: View
     private var current = -1
     private var utility: Page? = null
@@ -112,6 +115,10 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         val systemDark = (newConfig.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val activeScreen = utility ?: if (::pages.isInitialized) pages.getOrNull(current) else null
+        if (activeScreen is ScreenPage && newConfig.fontScale == lastFontScale && !(Prefs.themeMode == "system" && systemDark != T.dark)) {
+            lastOrientation = newConfig.orientation; activeScreen.orientationChanged(); return
+        }
         if ((Prefs.themeMode == "system" && systemDark != T.dark) || newConfig.orientation != lastOrientation || newConfig.fontScale != lastFontScale) recreate()
     }
 
@@ -137,7 +144,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
             isAppearanceLightNavigationBars = !T.dark
         }
 
-        pages = listOf(HomePage(this), FilesPage(this), ToolsPage(this), ScreenPage(this), DevicePage(this))
+        pages = listOf(HomePage(this), RemotePage(this), ToolsPage(this), ScreenPage(this), DevicePage(this))
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(buildLayout())
 
@@ -266,7 +273,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(4), dp(6), dp(4), dp(6))
         }
-        val items = listOf("Главная" to R.drawable.ic_pointer, "Файлы" to R.drawable.ic_files, "ПК" to R.drawable.ic_tools,
+        val items = listOf("Главная" to R.drawable.ic_pointer, "Пульт" to R.drawable.ic_pointer, "ПК" to R.drawable.ic_tools,
             "Экран" to R.drawable.ic_display, "Настройки" to R.drawable.ic_device)
         items.forEachIndexed { i, (name, icon) ->
             val col = LinearLayout(this).apply {
@@ -321,11 +328,16 @@ class MainActivity : ComponentActivity(), Hub.Observer {
         }
         pill.addView(statusText)
         top.addView(pill, lp(0, weight = 1.2f))
+        topBar = top
+        val gear = TextView(this).apply { text = "⚙"; textSize = 24f; gravity = Gravity.CENTER; contentDescription = "Настройки текущей функции"; setTextColor(T.accent); setOnClickListener { (utility ?: pages.getOrNull(current))?.openSettings() } }
+        functionSettings = gear
+        top.addView(gear, lp(dp(48), dp(48), l = 8, ctx = this))
         root.addView(top)
 
         content = FrameLayout(this)
         for (p in pages) content.addView(p.root, FrameLayout.LayoutParams(-1, -1).also { p.root.visibility = View.GONE })
         root.addView(content, lp(h = 0, weight = 1f))
+        navigationBar = navWrap
         root.addView(navWrap)
         return root
     }
@@ -338,6 +350,8 @@ class MainActivity : ComponentActivity(), Hub.Observer {
         current = i
         pages[i].root.visibility = View.VISIBLE
         pages[i].onShow()
+        updateFunctionSettings()
+        if (pages[i] !is ScreenPage) setScreenImmersive(false)
         navItems.forEachIndexed { idx, item ->
             val on = idx == i
             val c = if (on) T.accent else T.muted
@@ -359,6 +373,18 @@ class MainActivity : ComponentActivity(), Hub.Observer {
         current = -1
         content.addView(page.root, FrameLayout.LayoutParams(-1, -1))
         page.onShow()
+        updateFunctionSettings()
+        if (page !is ScreenPage) setScreenImmersive(false)
+    }
+
+    private fun updateFunctionSettings() { if (::functionSettings.isInitialized) functionSettings.visibility = if ((utility ?: pages.getOrNull(current))?.hasSettings == true) View.VISIBLE else View.GONE }
+    fun setScreenImmersive(enabled: Boolean) {
+        if (!::topBar.isInitialized || !::navigationBar.isInitialized) return
+        topBar.visibility = if (enabled) View.GONE else View.VISIBLE
+        navigationBar.visibility = if (enabled) View.GONE else View.VISIBLE
+        val bars = WindowCompat.getInsetsController(window, window.decorView)
+        bars.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (enabled) bars.hide(WindowInsetsCompat.Type.systemBars()) else bars.show(WindowInsetsCompat.Type.systemBars())
     }
 
     private fun updateStatus() {
@@ -436,7 +462,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
         val texts = pendingTexts.toList(); pendingTexts.clear()
         uris.forEach { Hub.sendUri(it) }
         texts.forEach { Hub.send("share.text", "text" to it) }
-        if (uris.isNotEmpty()) { select(1) }
+        if (uris.isNotEmpty()) { openUtility(FilesPage(this)) }
         if (texts.isNotEmpty()) Hub.toast("Текст отправлен на ПК")
     }
 }

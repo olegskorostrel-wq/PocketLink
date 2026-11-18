@@ -62,6 +62,9 @@ class TouchpadView(context: Context) : View(context) {
     private var lastTapY = 0f
     private var dragging = false
     private var twoFingerDrag = false
+    private val oneFingerHold = Runnable {
+        if (tracking && maxPointers == 1 && !moved && !dragging) { dragging = true; moved = true; callbacks?.onButton(0, true); performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS) }
+    }
     private val holdToDrag = Runnable {
         if (tracking && !moved && !scrolled && !dragging && maxPointers == 2) {
             dragging = true
@@ -101,7 +104,7 @@ class TouchpadView(context: Context) : View(context) {
         hint.typeface = UI_MEDIUM
         canvas.drawText("Сенсорная панель", width / 2f, cy + 20 * density, hint)
         hint.typeface = android.graphics.Typeface.DEFAULT
-        canvas.drawText("Два пальца — прокрутка", width / 2f, cy + 42 * density, hint)
+        canvas.drawText("Тап — ЛКМ · два пальца — ПКМ · удержание — выделить", width / 2f, cy + 42 * density, hint)
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -111,6 +114,8 @@ class TouchpadView(context: Context) : View(context) {
                 parent?.requestDisallowInterceptTouchEvent(true)
                 downX = e.x; downY = e.y; downT = e.eventTime
                 moved = false; scrolled = false; cursorLocked = false; scrollDist = 0f
+                removeCallbacks(oneFingerHold)
+                postDelayed(oneFingerHold, android.view.ViewConfiguration.getLongPressTimeout().toLong())
                 maxPointers = 1
                 resetTracking(e.x, e.y, e.eventTime)
                 val nearLastTap = e.eventTime - lastTapUpT < dragWindowMs &&
@@ -122,6 +127,7 @@ class TouchpadView(context: Context) : View(context) {
             }
 
             MotionEvent.ACTION_POINTER_DOWN -> {
+                removeCallbacks(oneFingerHold)
                 maxPointers = maxOf(maxPointers, e.pointerCount)
                 if (e.pointerCount == 2) {
                     // перешли в режим прокрутки: точка отсчёта — центр двух пальцев
@@ -129,7 +135,9 @@ class TouchpadView(context: Context) : View(context) {
                     accScrollX = 0f; accScrollY = 0f
                     if (!dragging && !moved) postDelayed(holdToDrag, 380L)
                 } else {
-                    removeCallbacks(holdToDrag)
+                    removeCallbacks(oneFingerHold)
+                removeCallbacks(oneFingerHold)
+        removeCallbacks(holdToDrag)
                     if (twoFingerDrag) stopDrag()
                 }
             }
