@@ -52,6 +52,10 @@ object Prefs {
 
     /** Автоподключение к последнему ПК (служба поднимается при запуске приложения). */
     /** Hardware volume keys control the PC while the PocketLink window is active. */
+    var syncAppearanceToPc: Boolean
+        get() = sp.getBoolean("sync_appearance_pc", true)
+        set(v) = sp.edit().putBoolean("sync_appearance_pc", v).apply()
+
     var themeMode: String
         get() = sp.getString("theme_mode", "system") ?: "system"
         set(v) = sp.edit().putString("theme_mode", v).apply()

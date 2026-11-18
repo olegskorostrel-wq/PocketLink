@@ -9,18 +9,44 @@ class DesktopPage(act: MainActivity) : Page(act) {
     private val body = vbox(act, 12)
     override val root: View = ScrollView(act).apply { addView(body) }
     private var shown = false
+    private var waiting = false
+    private val timeout = Runnable {
+        if (shown && waiting) { waiting = false; showMessage("ПК не ответил за 5 секунд. Обновите Windows-часть PocketLink и повторите.") }
+    }
+    private fun showMessage(text: String) {
+        body.removeAllViews()
+        body.addView(pageHeading(act, "Окна и состояние ПК"))
+        body.addView(muted(act, text))
+        body.addView(btn(act, "Повторить") { request() }, lp(t = 12, ctx = act))
+        body.addView(btn(act, "Подключение и разрешения") { act.showSettings() }, lp(t = 8, ctx = act))
+    }
+    private fun request() {
+        if (!shown || waiting) return
+        if (Hub.state != Hub.State.ONLINE) { showMessage("Нет связи с ПК. Подключите компьютер, затем повторите."); return }
+        if (!Hub.can("processes")) { showMessage("На ПК запрещён доступ к окнам и процессам. Разрешите его в настройках PocketLink на ПК."); return }
+        waiting = true
+        Hub.send("desktop.get")
+        Hub.main.postDelayed(timeout, 5000)
+    }
     private val refresh = object : Runnable {
         override fun run() {
             if (!shown) return
-            Hub.send("desktop.get")
+            request()
             Hub.main.postDelayed(this, 3000)
         }
     }
-    override fun onShow() { shown = true; refresh.run() }
-    override fun onHide() { shown = false; Hub.main.removeCallbacks(refresh) }
+    override fun onShow() { if (shown) return; shown = true; showMessage("Получаю окна и состояние ПК…"); refresh.run() }
+    override fun onHide() { shown = false; waiting = false; Hub.main.removeCallbacks(refresh); Hub.main.removeCallbacks(timeout) }
     private fun gib(bytes: Long) = String.format(java.util.Locale.getDefault(), "%.1f ГБ", bytes / 1073741824.0)
     override fun onHub(ev: String, data: Any?) {
+        if (shown && (ev == "state" || ev == "config")) {
+            waiting = false; Hub.main.removeCallbacks(timeout); request(); return
+        }
         val state = data as? JSONObject ?: return
+        if (shown && ev == "json" && (state.optString("t") == "desktop.error" || state.optString("t") == "denied" && state.optString("what") == "processes")) {
+            waiting = false; Hub.main.removeCallbacks(timeout)
+            showMessage(state.optString("message", "Доступ к окнам и процессам запрещён на ПК")); return
+        }
         if (shown && ev == "json" && state.optString("t") == "monitor.brightness") {
             val monitors = state.optJSONArray("items") ?: return
             if (monitors.length() == 0) { Hub.toast("Монитор не предоставляет управление яркостью DDC/CI"); return }
@@ -43,6 +69,7 @@ class DesktopPage(act: MainActivity) : Page(act) {
             return
         }
         if (!shown || ev != "json" || state.optString("t") != "desktop.state") return
+        waiting = false; Hub.main.removeCallbacks(timeout)
         body.removeAllViews()
         val metrics = state.optJSONObject("metrics") ?: JSONObject()
         body.addView(tv(act, "Состояние ПК", 18f, T.text, true))

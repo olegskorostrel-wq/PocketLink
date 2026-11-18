@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
             isAppearanceLightNavigationBars = !T.dark
         }
 
-        pages = listOf(RemotePage(this), FilesPage(this), ToolsPage(this), ScreenPage(this), DevicePage(this))
+        pages = listOf(HomePage(this), FilesPage(this), ToolsPage(this), ScreenPage(this), DevicePage(this))
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(buildLayout())
 
@@ -165,7 +165,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
             }
         })
         AppUpdates.schedule(this)
-        select(if (savedInstanceState != null) savedInstanceState.getInt("tab", 0) else if (Prefs.lastPc() == null) 4 else 0)
+        select(if (savedInstanceState != null) savedInstanceState.getInt("tab", 0).coerceIn(0, 4) else 0)
         if (intent.getBooleanExtra("open_updates", false)) { intent.removeExtra("open_updates"); openUtility(UpdatesPage(this)) }
     }
 
@@ -197,6 +197,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
         }
         pages.getOrNull(current)?.onShow()
         utility?.onShow()
+        Hub.sendAppearance()
         // служба могла быть остановлена системой
         if (Hub.state == Hub.State.OFF && Prefs.autoConnect && Prefs.lastPc() != null) {
             LinkService.start(this)
@@ -265,7 +266,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(4), dp(6), dp(4), dp(6))
         }
-        val items = listOf("Пульт" to R.drawable.ic_pointer, "Файлы" to R.drawable.ic_files, "ПК" to R.drawable.ic_tools,
+        val items = listOf("Главная" to R.drawable.ic_pointer, "Файлы" to R.drawable.ic_files, "ПК" to R.drawable.ic_tools,
             "Экран" to R.drawable.ic_display, "Настройки" to R.drawable.ic_device)
         items.forEachIndexed { i, (name, icon) ->
             val col = LinearLayout(this).apply {

@@ -282,12 +282,19 @@ object Hub {
 
     // ---------- сообщения ----------
 
+    private fun appearanceJson() = JSONObject()
+        .put("mode", Prefs.themeMode).put("accent", Prefs.themeAccent).put("enabled", Prefs.syncAppearanceToPc)
+        .put("dark", Prefs.themeMode == "dark" || Prefs.themeMode == "system" && (app.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES)
+
+    fun sendAppearance() { send(appearanceJson().put("t", "appearance.set")) }
+
     private fun sendHello() {
         val bat = Features.batteryJson()
         send(
             JSONObject().put("t", "hello")
                 .put("name", Prefs.deviceName).put("model", Build.MODEL ?: "").put("sdk", Build.VERSION.RELEASE ?: "")
                 .put("version", app.packageManager.getPackageInfo(app.packageName, 0).versionName).put("clipboardAck", true)
+                .put("appearance", appearanceJson())
                 .put("battery", bat)
                 .put("perms", Features.permsJson())
         )
@@ -318,6 +325,7 @@ object Hub {
                 }
                 send(JSONObject().put("t", "clip.applied").put("id", m.optInt("id")).put("ok", ok))
             }
+            "clip.pc.result" -> main.post { if (g == gen) toast(m.optString("message")) }
             "clip.ack" -> main.post {
                 if (g == gen && pendingClipboard.remove(m.optInt("id"))) {
                     toast(if (m.optBoolean("ok")) "Получено на ПК" else "Не удалось записать в буфер ПК")

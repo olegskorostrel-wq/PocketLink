@@ -68,14 +68,15 @@ class DevicePage(act: MainActivity) : Page(act) {
         val appearance = card(act, 4)
         appearance.addView(actionRow(act, "Цвет оформления", colors[colorKeys.indexOf(Prefs.themeAccent).coerceAtLeast(0)]) {
             AlertDialog.Builder(act).setTitle("Цвет оформления").setSingleChoiceItems(colors, colorKeys.indexOf(Prefs.themeAccent)) { dialog, index ->
-                Prefs.themeAccent = colorKeys[index]; dialog.dismiss(); act.recreate()
+                Prefs.themeAccent = colorKeys[index]; Hub.sendAppearance(); dialog.dismiss(); act.recreate()
             }.setNegativeButton("Отмена", null).show()
         })
         appearance.addView(actionRow(act, "Тема", modes[modeKeys.indexOf(Prefs.themeMode).coerceAtLeast(0)]) {
             AlertDialog.Builder(act).setTitle("Тема").setSingleChoiceItems(modes, modeKeys.indexOf(Prefs.themeMode)) { dialog, index ->
-                Prefs.themeMode = modeKeys[index]; dialog.dismiss(); act.recreate()
+                Prefs.themeMode = modeKeys[index]; Hub.sendAppearance(); dialog.dismiss(); act.recreate()
             }.setNegativeButton("Отмена", null).show()
         }, lp(t = 4, ctx = act))
+        appearance.addView(switchRow(act, "Передавать оформление на ПК", "На ПК включите «Следовать теме телефона». Можно отключить в любой момент.", Prefs.syncAppearanceToPc) { Prefs.syncAppearanceToPc = it; Hub.sendAppearance() }, lp(t = 8, ctx = act))
         body.addView(sectionTitle(act, "Оформление"))
         body.addView(appearance)
         body.addView(actionRow(act, "Обновления PocketLink", "Проверка и установка новых версий") { act.openUtility(UpdatesPage(act)) }, lp(t = 8, ctx = act))
