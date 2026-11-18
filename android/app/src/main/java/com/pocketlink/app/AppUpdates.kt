@@ -76,7 +76,7 @@ object AppUpdates {
         val nm = ctx.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("updates", "Обновления PocketLink", NotificationManager.IMPORTANCE_DEFAULT))
         val tap = PendingIntent.getActivity(ctx, 77, Intent(ctx, MainActivity::class.java).putExtra("open_updates", true), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val notice = Notification.Builder(ctx, "updates").setSmallIcon(R.drawable.ic_stat).setLargeIcon(Notifier.brandIcon(ctx))
+        val notice = Notification.Builder(ctx, "updates").setSmallIcon(Notifier.smallIcon(ctx)).setLargeIcon(Notifier.brandIcon(ctx))
             .setContentTitle("PocketLink ${release.version} готов к обновлению")
             .setContentText("Нажми, чтобы посмотреть и скачать новую версию с GitHub")
             .setContentIntent(tap).setAutoCancel(true).build()

@@ -11,8 +11,9 @@ android {
         applicationId = "com.pocketlink.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.7.3"
+        testInstrumentationRunner = "com.pocketlink.app.qa.IconRunner"
+        versionCode = 16
+        versionName = "1.7.4"
     }
 
     buildTypes {

@@ -15,6 +15,14 @@ object Notifier {
     const val CH_EVENTS = "events"
     const val ID_LINK = 1
     private var nextId = 100
+    private var cachedSmallIcon: android.graphics.drawable.Icon? = null
+    fun smallIcon(ctx: Context): android.graphics.drawable.Icon = cachedSmallIcon ?: run {
+        val drawable = ctx.getDrawable(R.drawable.ic_notification_brand)!!
+        val bitmap = android.graphics.Bitmap.createBitmap(64, 64, android.graphics.Bitmap.Config.ARGB_8888)
+        drawable.setBounds(0, 0, 64, 64)
+        drawable.draw(android.graphics.Canvas(bitmap))
+        android.graphics.drawable.Icon.createWithBitmap(bitmap).also { cachedSmallIcon = it }
+    }
     private var cachedBrand: android.graphics.Bitmap? = null
     fun brandIcon(ctx: Context): android.graphics.Bitmap = cachedBrand ?: run {
         val icon = ctx.applicationInfo.loadIcon(ctx.packageManager)
@@ -54,7 +62,7 @@ object Notifier {
             Hub.State.OFF -> "Нет связи с ПК"
         }
         val b = Notification.Builder(ctx, CH_LINK)
-            .setSmallIcon(R.drawable.ic_stat)
+            .setSmallIcon(smallIcon(ctx))
             .setLargeIcon(brandIcon(ctx))
             .setContentTitle("PocketLink")
             .setContentText(text)
@@ -84,7 +92,7 @@ object Notifier {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         ) else openApp(ctx)
         val n = Notification.Builder(ctx, CH_EVENTS)
-            .setSmallIcon(R.drawable.ic_stat)
+            .setSmallIcon(smallIcon(ctx))
             .setLargeIcon(brandIcon(ctx))
             .setContentTitle(title)
             .setContentText(text)
