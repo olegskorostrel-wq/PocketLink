@@ -10,6 +10,10 @@ Android-пульт для Windows: тачпад, клавиатура и сво�
 - [Android APK 1.5.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.5.0-preview/PocketLink.apk)
 - [Windows ZIP 1.3.0, совместим с Android 1.5.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/windows-v1.3.0/PocketLink-Windows.zip)
 
+## Полный комплект в одном релизе
+
+[Скачать все компоненты с одной страницы](https://github.com/olegskorostrel-wq/PocketLink/releases/tag/v1.5.0-preview): **PocketLink.apk**, **PocketLink-Windows.zip**, **PocketLink-Firefox.xpi**, **PocketLink-Chrome-Yandex.zip**. Начиная с этого комплекта, в каждый новый выпуск включаются все четыре пакета, даже если изменился только один. Версии компонентов перечислены в описании релиза. [Правило публикации](docs/RELEASE-CHECKLIST.md).
+
 ## Как скачать и установить программу на Windows
 
 1. Скачай **Windows ZIP** по ссылке выше. APK нужен телефону; Source code — исходники.
