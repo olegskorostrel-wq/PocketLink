@@ -10,7 +10,11 @@ class HomePage(act: MainActivity) : Page(act) {
     private val body = vbox(act, 12)
     override val root: View = ScrollView(act).apply { isFillViewport = true; addView(body) }
     override fun onShow() = render()
-    override fun onHub(ev: String, data: Any?) { if (ev == "state" || ev == "config") render() }
+    override fun onHub(ev: String, data: Any?) {
+        if (ev == "state" || ev == "config") render()
+        if (ev == "json" && data is org.json.JSONObject && data.optString("t") == "mirror.state")
+            AlertDialog.Builder(act).setTitle("Экран телефона на ПК").setMessage(data.optString("message")).setPositiveButton("Понятно", null).show()
+    }
     private fun online(permission: String, run: () -> Unit) {
         if (Hub.state != Hub.State.ONLINE) { Hub.toast("Нет связи с ПК"); return }
         if (!Hub.can(permission)) { Hub.toast("Действие запрещено в разрешениях ПК"); return }
@@ -46,7 +50,9 @@ class HomePage(act: MainActivity) : Page(act) {
         body.addView(btn(act, "Заблокировать ПК") { online("power") { Hub.send("power", "action" to "lock", "delay" to 0) } }, lp(t = 8, ctx = act))
         body.addView(btn(act, "Спящий режим") { power("sleep", "Перевести ПК в спящий режим?") }, lp(t = 8, ctx = act))
         body.addView(sectionTitle(act, "Телефон и устройства"))
-        body.addView(btn(act, "Заряд мыши и наушников") { act.openUtility(PeripheralPage(act)) }, lp(b = 8, ctx = act))
+        body.addView(btn(act, "Экран телефона и управление", 1) { online("commands") {
+            Hub.send("mirror.quick"); Hub.toast("Запускаю экран телефона на ПК…")
+        } }, lp(b = 8, ctx = act))
         body.addView(btn(act, "Телефон как веб-камера для Discord") { act.openUtility(WebcamPage(act)) }, lp(b = 8, ctx = act))
         body.addView(btn(act, "Bluetooth-пульт и геймпад") { act.openUtility(BluetoothPage(act)) })
         body.addView(btn(act, "Телефон как микрофон ПК") { act.openUtility(MicrophonePage(act)) }, lp(t = 8, ctx = act))
