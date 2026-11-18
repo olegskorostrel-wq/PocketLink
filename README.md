@@ -1,4 +1,6 @@
-# Новый комплект: Android 1.7.2 / Windows 1.6.2
+Исправлены значок уведомлений Android, значок ярлыков и светлая/тёмная полоса окна Windows. [Изменения 1.7.3](docs/RELEASE-1.7.3.md).
+
+# Новый комплект: Android 1.7.3 / Windows 1.6.3
 
 Добавлена кнопка «Экран телефона и управление» на главной странице ПК и телефона; USB или уже подключённый Wi-Fi ADB. Раздел заряда мыши и наушников удалён: речь шла об отдельной программе. Применён выбранный набор значков: дом и шестерёнка из первого варианта, пульт и трансляция из второго, компьютер с системным блоком из третьего. Исправлен отступ между кнопками файлов и пульта. Переработана навигация, добавлены жесты тачпада, видео в галерее, постоянный ключ расширения, собственное окно Windows и установка обновления кнопкой. Веб-камера через OBS работает с USB или Wi-Fi ADB. [Изменения, установка и ограничения](docs/RELEASE-1.7.1.md).
 
@@ -11,7 +13,7 @@ Android-пульт для Windows: тачпад, клавиатура и сво�
 - **Для Claude и других разработчиков: [задание и карта интерфейса](docs/UI-HANDOFF.md).**
 - [Исходники Android](android/)
 - [Последние сборки и изменения](https://github.com/olegskorostrel-wq/PocketLink/releases)
-- [Android APK 1.6.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.7.2-preview/PocketLink.apk)
+- [Android APK 1.6.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.7.3-preview/PocketLink.apk)
 - [Windows ZIP 1.5.0 со scrcpy, совместим с Android 1.6.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/windows-v1.5.0/PocketLink-Windows.zip)
 
 ## Главная, состояние ПК и синхронизация оформления
@@ -24,7 +26,7 @@ Android-пульт для Windows: тачпад, клавиатура и сво�
 
 ## Полный комплект в одном релизе
 
-[Скачать все компоненты с одной страницы](https://github.com/olegskorostrel-wq/PocketLink/releases/tag/v1.7.2-preview): **PocketLink.apk**, **PocketLink-Windows.zip**, **PocketLink-Firefox.xpi**, **PocketLink-Chrome-Yandex.zip**. Начиная с этого комплекта, в каждый новый выпуск включаются все четыре пакета, даже если изменился только один. Версии компонентов перечислены в описании релиза. [Правило публикации](docs/RELEASE-CHECKLIST.md).
+[Скачать все компоненты с одной страницы](https://github.com/olegskorostrel-wq/PocketLink/releases/tag/v1.7.3-preview): **PocketLink.apk**, **PocketLink-Windows.zip**, **PocketLink-Firefox.xpi**, **PocketLink-Chrome-Yandex.zip**. Начиная с этого комплекта, в каждый новый выпуск включаются все четыре пакета, даже если изменился только один. Версии компонентов перечислены в описании релиза. [Правило публикации](docs/RELEASE-CHECKLIST.md).
 
 ## Экран телефона на ПК и ручной буфер
 

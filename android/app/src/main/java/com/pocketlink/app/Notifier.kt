@@ -15,6 +15,14 @@ object Notifier {
     const val CH_EVENTS = "events"
     const val ID_LINK = 1
     private var nextId = 100
+    private var cachedBrand: android.graphics.Bitmap? = null
+    fun brandIcon(ctx: Context): android.graphics.Bitmap = cachedBrand ?: run {
+        val icon = ctx.applicationInfo.loadIcon(ctx.packageManager)
+        val bitmap = android.graphics.Bitmap.createBitmap(128, 128, android.graphics.Bitmap.Config.ARGB_8888)
+        icon.setBounds(0, 0, 128, 128)
+        icon.draw(android.graphics.Canvas(bitmap))
+        bitmap.also { cachedBrand = it }
+    }
 
     private fun nm(ctx: Context) = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -47,6 +55,7 @@ object Notifier {
         }
         val b = Notification.Builder(ctx, CH_LINK)
             .setSmallIcon(R.drawable.ic_stat)
+            .setLargeIcon(brandIcon(ctx))
             .setContentTitle("PocketLink")
             .setContentText(text)
             .setContentIntent(openApp(ctx))
@@ -76,6 +85,7 @@ object Notifier {
         ) else openApp(ctx)
         val n = Notification.Builder(ctx, CH_EVENTS)
             .setSmallIcon(R.drawable.ic_stat)
+            .setLargeIcon(brandIcon(ctx))
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text))
