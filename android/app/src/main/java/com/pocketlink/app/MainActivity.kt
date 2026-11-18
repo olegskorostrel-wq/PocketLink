@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -34,6 +35,8 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     private var current = -1
     private var utility: Page? = null
     private var utilityOrigin = 4
+    private val capturedVolumeKeys = mutableSetOf<Int>()
+    private var lastVolumeCommandAt = Long.MIN_VALUE / 2
 
     private val clipboard by lazy { getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
     private var lastSentClip: String? = null
@@ -173,12 +176,43 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     }
 
     override fun onStop() {
+        capturedVolumeKeys.clear()
         Hub.uiVisible = false
         Hub.unobserve(this)
         clipboard.removePrimaryClipChangedListener(clipListener)
         pages.getOrNull(current)?.onHide()
         utility?.onHide()
         super.onStop()
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        handleVolumeKey(event) || super.onKeyDown(keyCode, event)
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+        handleVolumeKey(event) || super.onKeyUp(keyCode, event)
+
+    private fun handleVolumeKey(event: KeyEvent): Boolean {
+        val key = event.keyCode
+        if (key != KeyEvent.KEYCODE_VOLUME_UP && key != KeyEvent.KEYCODE_VOLUME_DOWN) return false
+        if (!Prefs.pcVolumeKeys && key !in capturedVolumeKeys) return false
+        // Consume both halves of a press: a failed PC connection must never change phone volume.
+        if (event.action == KeyEvent.ACTION_UP) {
+            capturedVolumeKeys.remove(key)
+            return true
+        }
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            capturedVolumeKeys.add(key)
+            if (!Prefs.pcVolumeKeys || event.isCanceled) return true
+            when {
+                Hub.state != Hub.State.ONLINE -> if (event.repeatCount == 0) Hub.toast("Нет связи с ПК — громкость телефона не менялась")
+                !Hub.can("audio") -> if (event.repeatCount == 0) Hub.toast("Разреши управление звуком в PocketLink на ПК")
+                event.repeatCount == 0 || event.eventTime - lastVolumeCommandAt >= 150 -> {
+                    lastVolumeCommandAt = event.eventTime
+                    Hub.send(org.json.JSONObject().put("t", "media").put("cmd", if (key == KeyEvent.KEYCODE_VOLUME_UP) "volup" else "voldown"))
+                }
+            }
+        }
+        return true
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

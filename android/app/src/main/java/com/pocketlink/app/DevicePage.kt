@@ -120,6 +120,7 @@ class DevicePage(act: MainActivity) : Page(act) {
         body.addView(fold("Что делиться с ПК", s, false, "Уведомления, SMS, звонки, фото, буфер"), lp(t = 8, ctx = act))
 
         val controls = card(act, 12)
+        controls.addView(switchRow(act, "Кнопки громкости → ПК", "Пока открыт PocketLink: ±5% на ПК. При отсутствии связи громкость телефона не меняется. Снаружи приложения кнопки обычные.", Prefs.pcVolumeKeys) { Prefs.pcVolumeKeys = it })
         controls.addView(actionRow(act, "YouTube — поиск и пульт", "Обложки, поиск и управление видео") { act.openUtility(YouTubePage(act)) })
         controls.addView(actionRow(act, "Микшер приложений ПК", "Громкость программ и вывод звука") { act.openUtility(MixerPage(act)) }, lp(t = 8, ctx = act))
         controls.addView(actionRow(act, "Окна и состояние ПК", "Активные окна, нагрузка и яркость") { act.openUtility(DesktopPage(act)) }, lp(t = 8, ctx = act))

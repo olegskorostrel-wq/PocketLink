@@ -51,6 +51,11 @@ object Prefs {
         set(v) = sp.edit().putString("last_host", v).apply()
 
     /** Автоподключение к последнему ПК (служба поднимается при запуске приложения). */
+    /** Hardware volume keys control the PC while the PocketLink window is active. */
+    var pcVolumeKeys: Boolean
+        get() = sp.getBoolean("pc_volume_keys", true)
+        set(v) = sp.edit().putBoolean("pc_volume_keys", v).apply()
+
     var autoConnect: Boolean
         get() = sp.getBoolean("auto", true)
         set(v) = sp.edit().putBoolean("auto", v).apply()
