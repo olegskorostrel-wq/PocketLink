@@ -2,17 +2,17 @@
 
 Android-пульт для Windows: тачпад, клавиатура и свои сочетания, экран ПК на телефоне, файлы, буфер обмена, звук и YouTube.
 
-**В репозитории теперь есть полный Android-проект версии 1.3.1**, включая исходники интерфейса, ресурсы, справочник сочетаний и Gradle Wrapper. Это рабочая исходная версия для улучшения визуала, а не только APK.
+**В репозитории теперь есть полный Android-проект версии 1.4.0**, включая исходники интерфейса, ресурсы, справочник сочетаний и Gradle Wrapper. Это рабочая исходная версия для улучшения визуала, а не только APK.
 
 - **Для Claude и других разработчиков: [задание и карта интерфейса](docs/UI-HANDOFF.md).**
 - [Исходники Android](android/)
 - [Последние сборки и изменения](https://github.com/olegskorostrel-wq/PocketLink/releases)
-- [Android APK 1.3.1](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.3.1-preview/PocketLink.apk)
-- [Windows ZIP 1.2.0, совместим с Android 1.3.1](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.3.0-preview/PocketLink-Windows.zip)
+- [Android APK 1.4.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.4.0-preview/PocketLink.apk)
+- [Windows ZIP 1.2.0, совместим с Android 1.4.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.3.0-preview/PocketLink-Windows.zip)
 
 ## Вид приложения
 
-На скриншоте экран команд из 1.3.0. В исходниках 1.3.1 уже исправлено центрирование подписей нижних вкладок; остальные элементы этого экрана соответствуют скриншоту.
+На скриншоте экран команд из 1.3.0. В исходниках 1.4.0 уже исправлено центрирование подписей нижних вкладок; остальные элементы этого экрана соответствуют скриншоту.
 
 ![Команды PocketLink на телефоне, версия 1.3.0](docs/screenshots/commands-1.3.0.jpg)
 

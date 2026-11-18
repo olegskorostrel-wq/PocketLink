@@ -28,7 +28,9 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     private lateinit var content: FrameLayout
     private lateinit var dot: View
     private lateinit var statusText: TextView
-    private val navItems = mutableListOf<Pair<ImageView, TextView>>()
+    private class NavItem(val pill: FrameLayout, val img: ImageView, val label: TextView)
+    private val navItems = mutableListOf<NavItem>()
+    private lateinit var statusPill: View
     private var current = -1
     private var utility: Page? = null
     private var utilityOrigin = 4
@@ -190,54 +192,77 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     private fun buildLayout(): View {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(T.bg) }
 
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
-            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
-            insets
+        // нижняя навигация собирается первой: системный отступ снизу отдаётся ей, чтобы фон доходил до края экрана
+        val navWrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(T.panel)
         }
-        ViewCompat.requestApplyInsets(root)
-        val top = hbox(this).apply { setPadding(dp(16), dp(14), dp(16), dp(12)); setOnClickListener { select(4) } }
-        dot = View(this).apply { background = roundBg(T.muted, 6, this@MainActivity) }
-        top.addView(dot, lp(dp(10), dp(10), r = 8, ctx = this))
-        statusText = tv(this, "PocketLink", 14f, T.text, true).apply { setSingleLine(); ellipsize = android.text.TextUtils.TruncateAt.END }
-        top.addView(statusText, lp(0, weight = 1f))
-        root.addView(top)
-
-        content = FrameLayout(this)
-        for (p in pages) content.addView(p.root, FrameLayout.LayoutParams(-1, -1).also { p.root.visibility = View.GONE })
-        root.addView(content, lp(h = 0, weight = 1f))
-
+        navWrap.addView(View(this).apply { setBackgroundColor(T.line) }, LinearLayout.LayoutParams(-1, 1))
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(T.panel)
-            setPadding(0, dp(4), 0, dp(4))
+            setPadding(dp(4), dp(6), dp(4), dp(6))
         }
         val items = listOf("Пульт" to R.drawable.ic_remote, "Файлы" to R.drawable.ic_files, "ПК" to R.drawable.ic_tools,
             "Экран" to R.drawable.ic_screen, "Настройки" to R.drawable.ic_device)
         items.forEachIndexed { i, (name, icon) ->
             val col = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                setPadding(0, dp(8), 0, dp(8))
-                minimumHeight = dp(60)
-                background = ripple(roundBg(0, 12, this@MainActivity))
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(0, dp(2), 0, dp(2))
+                minimumHeight = dp(56)
+                background = ripple(roundBg(0, 14, this@MainActivity))
+                contentDescription = name
                 setOnClickListener { select(i) }
             }
+            val pill = FrameLayout(this)
             val img = ImageView(this).apply { setImageResource(icon) }
+            pill.addView(img, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER))
             val label = tv(this, name, 11f, T.muted).apply {
                 gravity = Gravity.CENTER
                 setSingleLine()
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                setPadding(dp(2), dp(4), dp(2), 0)
+                setPadding(dp(2), dp(3), dp(2), 0)
                 includeFontPadding = false
             }
-            col.addView(img, LinearLayout.LayoutParams(dp(24), dp(24)))
+            col.addView(pill, LinearLayout.LayoutParams(dp(60), dp(32)))
             col.addView(label, LinearLayout.LayoutParams(-1, -2))
-            navItems += img to label
+            navItems += NavItem(pill, img, label)
             nav.addView(col, lp(0, weight = 1f))
         }
-        root.addView(nav)
+        navWrap.addView(nav)
+
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val keyboardUp = keyboard.bottom > bars.bottom
+            view.setPadding(bars.left, bars.top, bars.right, if (keyboardUp) keyboard.bottom else 0)
+            navWrap.setPadding(0, 0, 0, if (keyboardUp) 0 else bars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
+
+        // верхняя строка: название слева, состояние связи плашкой справа
+        val top = hbox(this).apply { setPadding(dp(16), dp(10), dp(16), dp(8)) }
+        top.addView(tv(this, "PocketLink", 18f, T.text, true).apply { setSingleLine(); ellipsize = android.text.TextUtils.TruncateAt.END }, lp(0, weight = 1f, r = 8, ctx = this))
+        val pill = hbox(this).apply {
+            setPadding(dp(12), dp(7), dp(14), dp(7))
+            background = ripple(roundBg(T.panel, 18, this@MainActivity, T.line, 1))
+            setOnClickListener { select(4) }
+        }
+        statusPill = pill
+        dot = View(this).apply { background = roundBg(T.muted, 6, this@MainActivity) }
+        pill.addView(dot, lp(dp(8), dp(8), r = 8, ctx = this))
+        statusText = tv(this, "Нет связи", 13f, T.text, true).apply {
+            setSingleLine(); ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = dp(200)
+        }
+        pill.addView(statusText)
+        top.addView(pill, lp(0, weight = 1.2f))
+        root.addView(top)
+
+        content = FrameLayout(this)
+        for (p in pages) content.addView(p.root, FrameLayout.LayoutParams(-1, -1).also { p.root.visibility = View.GONE })
+        root.addView(content, lp(h = 0, weight = 1f))
+        root.addView(navWrap)
         return root
     }
 
@@ -249,14 +274,18 @@ class MainActivity : ComponentActivity(), Hub.Observer {
         current = i
         pages[i].root.visibility = View.VISIBLE
         pages[i].onShow()
-        navItems.forEachIndexed { idx, (img, label) ->
-            val c = if (idx == i) T.accent else T.muted
-            img.imageTintList = ColorStateList.valueOf(c)
-            label.setTextColor(c)
+        navItems.forEachIndexed { idx, item ->
+            val on = idx == i
+            val c = if (on) T.accent else T.muted
+            item.img.imageTintList = ColorStateList.valueOf(c)
+            item.label.setTextColor(c)
+            item.label.typeface = if (on) UI_MEDIUM else android.graphics.Typeface.DEFAULT
+            item.pill.background = if (on) roundBg(T.accentSoft, 16, this) else null
         }
     }
 
     fun showCommands() = select(2)
+    fun showSettings() = select(4)
 
     fun openUtility(page: Page) {
         if (current >= 0) utilityOrigin = current
@@ -271,12 +300,18 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     private fun updateStatus() {
         if (!::statusText.isInitialized) return
         val (color, text) = when (Hub.state) {
-            Hub.State.ONLINE -> T.ok to "Подключено · ${Hub.pcName}"
+            Hub.State.ONLINE -> T.ok to Hub.pcName.ifEmpty { "Подключено" }
             Hub.State.CONNECTING -> T.accent to "Подключаюсь…"
-            Hub.State.OFF -> T.muted to "Нет связи с ПК"
+            Hub.State.OFF -> T.muted to "Нет связи"
         }
         (dot.background as? GradientDrawable)?.setColor(color)
-        statusText.text = "PocketLink  ·  $text"
+        statusText.text = text
+        statusText.setTextColor(if (Hub.state == Hub.State.OFF) T.muted else T.text)
+        statusPill.contentDescription = "PocketLink: " + when (Hub.state) {
+            Hub.State.ONLINE -> "подключено, " + Hub.pcName
+            Hub.State.CONNECTING -> "подключаюсь"
+            Hub.State.OFF -> "нет связи с ПК"
+        }
     }
 
     override fun onHub(ev: String, data: Any?) {

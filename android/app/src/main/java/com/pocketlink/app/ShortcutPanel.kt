@@ -36,14 +36,15 @@ class ShortcutPanel(private val act: MainActivity, private val refresh: () -> Un
         refresh()
     }
     fun render(container: LinearLayout) {
-        container.addView(tv(act, "Быстрые действия", 23f, T.text, true), lp(t = 16, b = 4, ctx = act))
-        container.addView(muted(act, "Одно нажатие — сочетание на ПК. Удерживай кнопку, чтобы изменить её."), lp(b = 12, ctx = act))
-        if (Hub.state != Hub.State.ONLINE) container.addView(card(act).apply {
-            addView(tv(act, "Подключи компьютер", 15f, T.text, true))
-            addView(muted(act, "Кнопки уже можно настроить. Выполнение станет доступно после подключения."))
-        }, lp(b = 8, ctx = act))
-        container.addView(btn(act, "+  Своя кнопка", 1) { edit(null, null) }, lp(t = 4, b = 8, ctx = act))
-        container.addView(btn(act, "Найти сочетание в справочнике", 1) {
+        val ready = Hub.state == Hub.State.ONLINE && Hub.can("keyboard")
+        container.addView(tv(act, "Быстрые действия", 20f, T.text, true), lp(t = 12, b = 2, ctx = act))
+        container.addView(muted(act, "Нажми, чтобы отправить сочетание на ПК. Удержи, чтобы изменить.", 12.5f), lp(b = 12, ctx = act))
+        if (Hub.state != Hub.State.ONLINE) {
+            container.addView(infoBanner(act, "ПК не подключён: кнопки можно настроить, а выполнять — после подключения.", "Подключить") { act.showSettings() }, lp(b = 12, ctx = act))
+        }
+        val actions = hbox(act)
+        actions.addView(btn(act, "+  Своя кнопка", 1) { edit(null, null) }, lp(0, weight = 1f, r = 8, ctx = act))
+        actions.addView(btn(act, "Справочник", 0) {
             act.openUtility(ShortcutCatalogPage(act, { items().map { it.json() } }) { o ->
                 val mods = o.optJSONArray("mods") ?: JSONArray()
                 val item = Item(o.optString("name"), o.optString("key"), (0 until mods.length()).map { mods.optString(it) })
@@ -51,34 +52,51 @@ class ShortcutPanel(private val act: MainActivity, private val refresh: () -> Un
                 if (all.any { it.key == item.key && it.mods.toSet() == item.mods.toSet() }) Hub.toast("Такая кнопка уже есть на панели")
                 else { all.add(item); save(all); Hub.toast("Кнопка добавлена в ПК → Команды") }
             })
-        }, lp(t = 8, ctx = act))
-        container.addView(spacer(act, 12))
+        }, lp(0, weight = 1f, ctx = act))
+        container.addView(actions, lp(b = 12, ctx = act))
         val all = items()
         val columns = if (act.resources.configuration.screenWidthDp >= 600) 3 else 2
         all.chunked(columns).forEachIndexed { rowIndex, rowItems ->
             val row = hbox(act)
             rowItems.forEachIndexed { col, item ->
                 val index = rowIndex * columns + col
-                val button = btn(act, item.name + "\n" + item.combo) {
-                    when {
-                        Hub.state != Hub.State.ONLINE -> Hub.toast("Подключи ПК в настройках")
-                        !Hub.can("keyboard") -> Hub.toast("Разреши клавиатуру в PocketLink на ПК")
-                        else -> {
-                            Hub.send(JSONObject().put("t", "key").put("k", item.key).put("m", JSONArray(item.mods)))
-                            Hub.toast("Отправлено: ${item.combo}")
-                        }
-                    }
-                }.apply {
-                    minHeight = act.dp(80)
-                    alpha = if (Hub.state == Hub.State.ONLINE && Hub.can("keyboard")) 1f else .65f
-                    setOnLongClickListener { edit(index, item); true }
-                    contentDescription = item.name + ", " + item.combo + ". Удерживай для изменения"
-                }
-                row.addView(button, lp(0, weight = 1f, r = if (col < columns - 1) 8 else 0, ctx = act))
+                row.addView(tile(item, ready, index), lp(0, -2, 1f, r = if (col < columns - 1) 8 else 0, ctx = act))
             }
-            if (rowItems.size < columns) row.addView(View(act), lp(0, weight = (columns - rowItems.size).toFloat()))
+            if (rowItems.size < columns) row.addView(View(act), lp(0, act.dp(78), (columns - rowItems.size).toFloat()))
             container.addView(row, lp(b = 8, ctx = act))
         }
+    }
+
+    /** Плитка сочетания: название сверху, само сочетание акцентной подписью снизу. */
+    private fun tile(item: Item, ready: Boolean, index: Int): View = vbox(act, 10).apply {
+        gravity = android.view.Gravity.CENTER
+        background = ripple(roundBg(T.panel, 16, act, T.line, 1))
+        alpha = if (ready) 1f else .6f
+        isClickable = true
+        addView(tv(act, item.name, 14f, T.text, true).apply {
+            gravity = android.view.Gravity.CENTER
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        addView(tv(act, item.combo, 11.5f, T.accent).apply {
+            typeface = android.graphics.Typeface.MONOSPACE
+            gravity = android.view.Gravity.CENTER
+            setSingleLine()
+            setPadding(act.dp(8), act.dp(2), act.dp(8), act.dp(2))
+            background = roundBg(T.accentSoft, 8, act)
+        }, lp(-2, -2, t = 6, ctx = act))
+        setOnClickListener {
+            when {
+                Hub.state != Hub.State.ONLINE -> Hub.toast("Подключи ПК в настройках")
+                !Hub.can("keyboard") -> Hub.toast("Разреши клавиатуру в PocketLink на ПК")
+                else -> {
+                    Hub.send(JSONObject().put("t", "key").put("k", item.key).put("m", JSONArray(item.mods)))
+                    Hub.toast("Отправлено: ${item.combo}")
+                }
+            }
+        }
+        setOnLongClickListener { edit(index, item); true }
+        contentDescription = item.name + ", " + item.combo + ". Удерживай для изменения"
     }
 
     private fun edit(index: Int?, old: Item?) {

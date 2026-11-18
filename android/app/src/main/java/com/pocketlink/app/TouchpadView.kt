@@ -71,19 +71,37 @@ class TouchpadView(context: Context) : View(context) {
         }
     }
 
-    private val bg = Paint().apply { color = Color.rgb(24, 26, 32) }
+    private val surface = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1f * density }
     private val hint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(110, 116, 130)
-        textSize = 14f * density
+        textSize = 13f * density
         textAlign = Paint.Align.CENTER
     }
+    private val rect = android.graphics.RectF()
 
     override fun onDraw(canvas: Canvas) {
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bg)
+        surface.color = T.panel
+        border.color = T.line
+        val radius = 22f * density
+        val inset = border.strokeWidth / 2f
+        rect.set(inset, inset, width - inset, height - inset)
+        canvas.drawRoundRect(rect, radius, radius, surface)
+        canvas.drawRoundRect(rect, radius, radius, border)
+
         val cy = height / 2f
-        canvas.drawText("Тачпад", width / 2f, cy - hint.textSize, hint)
-        canvas.drawText("тап = клик, два пальца = прокрутка", width / 2f, cy, hint)
-        canvas.drawText("двумя пальцами тап = правый клик", width / 2f, cy + hint.textSize * 1.3f, hint)
+        val step = hint.textSize * 1.45f
+        hint.typeface = UI_MEDIUM
+        hint.color = T.muted
+        canvas.drawText("Тачпад", width / 2f, cy - step, hint)
+        hint.typeface = android.graphics.Typeface.DEFAULT
+        hint.alpha = 190
+        canvas.drawText("тап — клик, два пальца — прокрутка", width / 2f, cy, hint)
+        canvas.drawText("тап двумя пальцами — правый клик", width / 2f, cy + step, hint)
+        if (Hub.state != Hub.State.ONLINE) {
+            hint.color = T.accent
+            hint.typeface = UI_MEDIUM
+            canvas.drawText("Нет связи с ПК — подключись в «Настройках»", width / 2f, cy + step * 2.6f, hint)
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")

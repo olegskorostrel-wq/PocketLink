@@ -15,8 +15,7 @@ import org.json.JSONObject
 class RemotePage(act: MainActivity) : Page(act) {
     private val pad = TouchpadView(act)
     private val panel = FrameLayout(act)
-    private val tabs = hbox(act)
-    private val tabViews = mutableListOf<TextView>()
+    private val seg = Segmented(act, listOf("Клавиши", "Медиа", "Показ")) { setMode(it) }
     private var mode = 0
     private var seekTracking = false
 
@@ -35,28 +34,18 @@ class RemotePage(act: MainActivity) : Page(act) {
             }
             override fun onButton(button: Int, down: Boolean) { Hub.conn?.button(button, down) }
         }
-        r.addView(pad, lp(h = 0, weight = 1f, l = 10, t = 6, r = 10, ctx = act))
+        r.addView(pad, lp(h = 0, weight = 1f, l = 12, t = 4, r = 12, ctx = act))
 
-        // кнопки мыши
+        // кнопки мыши: крайние шире, чтобы попадать большим пальцем
         val mouse = hbox(act)
-        mouse.addView(btn(act, "ЛКМ") { click(0) }, lp(0, weight = 1f, r = 6, ctx = act))
-        mouse.addView(btn(act, "Колесо") { click(2) }, lp(0, weight = 1f, r = 6, ctx = act))
-        mouse.addView(btn(act, "ПКМ") { click(1) }, lp(0, weight = 1f, ctx = act))
-        r.addView(mouse, lp(l = 10, t = 6, r = 10, ctx = act))
+        mouse.addView(btn(act, "ЛКМ") { click(0) }, lp(0, act.dp(50), 1.2f, r = 8, ctx = act))
+        mouse.addView(btn(act, "Колесо") { click(2) }, lp(0, act.dp(50), 0.8f, r = 8, ctx = act))
+        mouse.addView(btn(act, "ПКМ") { click(1) }, lp(0, act.dp(50), 1.2f, ctx = act))
+        r.addView(mouse, lp(l = 12, t = 8, r = 12, ctx = act))
 
         // переключатель панелей
-        val names = listOf("Клавиши", "Медиа", "Показ")
-        names.forEachIndexed { i, n ->
-            val t = tv(act, n, 13f, T.muted, true).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, act.dp(8), 0, act.dp(8))
-                setOnClickListener { setMode(i) }
-            }
-            tabViews += t
-            tabs.addView(t, lp(0, weight = 1f))
-        }
-        r.addView(tabs, lp(l = 10, t = 4, r = 10, ctx = act))
-        r.addView(panel, lp(h = act.dp(168), l = 10, r = 10, b = 6, ctx = act))
+        r.addView(seg.view, lp(l = 12, t = 8, r = 12, ctx = act))
+        r.addView(panel, lp(h = act.dp(184), l = 12, t = 4, r = 12, b = 8, ctx = act))
         buildPanels()
         setMode(0)
     }
@@ -77,11 +66,7 @@ class RemotePage(act: MainActivity) : Page(act) {
 
     private fun setMode(i: Int) {
         mode = i
-        tabViews.forEachIndexed { idx, t ->
-            val on = idx == i
-            t.setTextColor(if (on) android.graphics.Color.WHITE else T.muted)
-            t.background = if (on) roundBg(T.accent, 10, act) else null
-        }
+        seg.select(i)
         for (c in 0 until panel.childCount) panel.getChildAt(c).visibility = if (c == i) View.VISIBLE else View.GONE
     }
 
@@ -89,7 +74,10 @@ class RemotePage(act: MainActivity) : Page(act) {
         val sv = HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false }
         val row = hbox(act)
         for ((label, k, mods) in items) {
-            row.addView(btn(act, label) { key(k, *mods) }.apply { minWidth = act.dp(52) }, lp(-2, -2, l = 0, r = 6, ctx = act))
+            row.addView(btn(act, label) { key(k, *mods) }.apply {
+                minWidth = act.dp(52); minHeight = act.dp(38); textSize = 13f
+                setPadding(act.dp(14), act.dp(4), act.dp(14), act.dp(4))
+            }, lp(-2, -2, l = 0, r = 6, ctx = act))
         }
         sv.addView(row)
         return sv
@@ -155,8 +143,8 @@ class RemotePage(act: MainActivity) : Page(act) {
         // --- презентация ---
         val p = vbox(act)
         val row = hbox(act)
-        row.addView(btn(act, "◀  Назад") { key("left") }, lp(0, h = act.dp(72), weight = 1f, r = 8, ctx = act))
-        row.addView(btn(act, "Вперёд  ▶", 1) { key("right") }, lp(0, h = act.dp(72), weight = 1f, ctx = act))
+        row.addView(btn(act, "◀  Назад") { key("left") }, lp(0, h = act.dp(76), weight = 1f, r = 8, ctx = act))
+        row.addView(btn(act, "Вперёд  ▶", 1) { key("right") }, lp(0, h = act.dp(76), weight = 1f, ctx = act))
         p.addView(row, lp(t = 6, ctx = act))
         val row2 = hbox(act)
         row2.addView(btn(act, "Показ (F5)") { key("f5") }, lp(0, weight = 1f, r = 8, ctx = act))
@@ -181,6 +169,9 @@ class RemotePage(act: MainActivity) : Page(act) {
         }
     }
 
-    override fun onShow() { pad.sensitivity = Prefs.pointerSensitivity; applyStatus() }
-    override fun onHub(ev: String, data: Any?) { if (ev == "status" || ev == "state") applyStatus() }
+    override fun onShow() { pad.sensitivity = Prefs.pointerSensitivity; applyStatus(); pad.invalidate() }
+    override fun onHub(ev: String, data: Any?) {
+        if (ev == "status" || ev == "state") applyStatus()
+        if (ev == "state") pad.invalidate()
+    }
 }

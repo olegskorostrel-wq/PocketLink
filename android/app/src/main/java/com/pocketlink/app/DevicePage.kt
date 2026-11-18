@@ -39,31 +39,42 @@ class DevicePage(act: MainActivity) : Page(act) {
     private fun render() {
         body.removeAllViews()
         // --- состояние ---
-        val st = card(act)
         val online = Hub.state == Hub.State.ONLINE
-        st.addView(tv(act, when (Hub.state) {
-            Hub.State.ONLINE -> "Подключено: ${Hub.pcName}"
+        val st = card(act, 16)
+        val head = hbox(act)
+        val stColor = when (Hub.state) { Hub.State.ONLINE -> T.ok; Hub.State.CONNECTING -> T.accent; Hub.State.OFF -> T.muted }
+        head.addView(View(act).apply { background = roundBg(stColor, 6, act) }, lp(act.dp(12), act.dp(12), r = 12, ctx = act))
+        val titleCol = vbox(act)
+        titleCol.addView(tv(act, when (Hub.state) {
+            Hub.State.ONLINE -> Hub.pcName.ifEmpty { "Подключено" }
             Hub.State.CONNECTING -> "Подключаюсь…"
             Hub.State.OFF -> "Нет связи с ПК"
-        }, 17f, if (online) T.ok else T.text, true))
-        if (online) st.addView(muted(act, "${Hub.pcHost} · ${Hub.pcOs}", 12f))
-        else if (Hub.lastError.isNotEmpty()) st.addView(tv(act, Hub.lastError, 13f, T.danger))
-        if (Hub.state != Hub.State.OFF) st.addView(btn(act, "Отключиться") { Hub.disconnect() }, lp(t = 10, ctx = act))
+        }, 17f, T.text, true))
+        if (online) titleCol.addView(muted(act, "${Hub.pcHost} · ${Hub.pcOs}", 12f), lp(t = 2, ctx = act))
+        else if (Hub.lastError.isNotEmpty()) titleCol.addView(tv(act, Hub.lastError, 12.5f, T.danger), lp(t = 2, ctx = act))
+        else titleCol.addView(muted(act, "Подключи компьютер ниже, чтобы управлять им", 12f), lp(t = 2, ctx = act))
+        head.addView(titleCol, lp(0, weight = 1f))
+        if (Hub.state != Hub.State.OFF) head.addView(btn(act, "Отключить", 3) { Hub.disconnect() }.apply {
+            minHeight = act.dp(38); setPadding(act.dp(12), act.dp(4), act.dp(12), act.dp(4))
+        }, lp(-2, -2, l = 8, ctx = act))
+        st.addView(head)
         body.addView(st)
 
-        body.addView(btn(act, "Обновления PocketLink") { act.openUtility(UpdatesPage(act)) }, lp(t = 10, ctx = act))
+        body.addView(actionRow(act, "Обновления PocketLink", "Проверка и установка новых версий") { act.openUtility(UpdatesPage(act)) }, lp(t = 8, ctx = act))
 
         // --- запомненные ПК ---
         val pcs = Prefs.pcs()
         if (pcs.isNotEmpty()) {
             body.addView(sectionTitle(act, "Мои компьютеры"))
             for (pc in pcs) {
-                val row = hbox(act, 12).apply { background = ripple(roundBg(T.panel, 12, act)); isClickable = true }
+                val row = hbox(act, 12).apply { background = ripple(roundBg(T.panel, 14, act, T.line, 1)); isClickable = true }
                 val col = vbox(act)
                 col.addView(tv(act, pc.name, 15f, T.text, true))
                 col.addView(muted(act, pc.host + if (pc.key == null) " · нужен код" else "", 12f))
                 row.addView(col, lp(0, weight = 1f))
-                row.addView(btn(act, "Включить") { Hub.wake(pc) }, lp(-2, -2, r = 6, ctx = act))
+                row.addView(btn(act, "Включить") { Hub.wake(pc) }.apply {
+                    minHeight = act.dp(38); setPadding(act.dp(12), act.dp(4), act.dp(12), act.dp(4))
+                }, lp(-2, -2, ctx = act))
                 row.setOnClickListener { if (pc.key == null) askPin(pc.host) else Hub.connect(pc.host, null) }
                 row.setOnLongClickListener {
                     AlertDialog.Builder(act).setTitle(pc.name).setMessage("Забыть этот компьютер на телефоне?")
@@ -77,7 +88,6 @@ class DevicePage(act: MainActivity) : Page(act) {
         }
 
         // --- поиск и ручное подключение ---
-        body.addView(sectionTitle(act, "Подключить новый ПК"))
         val c = card(act)
         c.addView(btn(act, "Сканировать QR с ПК", 1) { act.scanPairing() }, lp(b = 8, ctx = act))
         c.addView(btn(act, if (scanning) "Ищу…" else "Найти ПК в сети") { scan() })
@@ -97,10 +107,9 @@ class DevicePage(act: MainActivity) : Page(act) {
                 if (Prefs.pcByHost(manualIp)?.key != null) Hub.connect(manualIp, null) else Hub.toast("Введи код сопряжения (он на ПК в окне PocketLink)")
             } else { Hub.connect(manualIp, manualPin); manualPin = "" }
         })
-        body.addView(fold("Подключить компьютер", c, Prefs.pcs().isEmpty()))
+        body.addView(fold("Подключить новый ПК", c, Prefs.pcs().isEmpty(), "QR-код, поиск в сети, вручную"), lp(t = 8, ctx = act))
 
         // --- что делиться ---
-        body.addView(sectionTitle(act, "Что делиться с ПК"))
         val s = card(act, 12)
         s.addView(switchRow(act, "Уведомления", "Показывать на ПК, отвечать и закрывать оттуда", Prefs.shareNotifs) { Prefs.shareNotifs = it; if (it && Hub.state == Hub.State.ONLINE) NotifMirror.syncAll() })
         s.addView(switchRow(act, "SMS", "Читать и отправлять с ПК", Prefs.shareSms) { Prefs.shareSms = it; resetFeatures() })
@@ -108,9 +117,8 @@ class DevicePage(act: MainActivity) : Page(act) {
         s.addView(switchRow(act, "Фото", "Просмотр и скачивание на ПК", Prefs.sharePhotos) { Prefs.sharePhotos = it })
         s.addView(switchRow(act, "Буфер обмена", "Слать на ПК само, пока приложение открыто", Prefs.clipAuto) { Prefs.clipAuto = it })
         s.addView(switchRow(act, "Автоподключение", "Держать связь с последним ПК в фоне и после перезагрузки", Prefs.autoConnect) { Prefs.autoConnect = it })
-        body.addView(fold("Обмен данными и автоподключение", s))
+        body.addView(fold("Что делиться с ПК", s, false, "Уведомления, SMS, звонки, фото, буфер"), lp(t = 8, ctx = act))
 
-        body.addView(sectionTitle(act, "Пульт и экран"))
         val controls = card(act, 12)
         controls.addView(actionRow(act, "YouTube — поиск и пульт", "Обложки, поиск и управление видео") { act.openUtility(YouTubePage(act)) })
         controls.addView(actionRow(act, "Микшер приложений ПК", "Громкость программ и вывод звука") { act.openUtility(MixerPage(act)) }, lp(t = 8, ctx = act))
@@ -148,10 +156,9 @@ class DevicePage(act: MainActivity) : Page(act) {
                 }.show()
         }, lp(t = 8, ctx = act))
         controls.addView(switchRow(act, "Касания управляют ПК", "Выключи для просмотра без случайных кликов", Prefs.screenControl) { Prefs.screenControl = it })
-        body.addView(fold("Инструменты и параметры пульта", controls))
+        body.addView(fold("Пульт и экран", controls, false, "YouTube, микшер, тачпад, качество экрана"), lp(t = 8, ctx = act))
 
         // --- права ---
-        body.addView(sectionTitle(act, "Разрешения Android"))
         val p = card(act, 12)
         p.addView(permRow("Доступ к уведомлениям", Features.hasNotifAccess()) {
             act.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -177,10 +184,9 @@ class DevicePage(act: MainActivity) : Page(act) {
                 act.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + act.packageName)))
             } catch (_: Exception) { act.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
         })
-        body.addView(fold("Доступы и работа в фоне", p))
+        body.addView(fold("Разрешения Android", p, false, "Доступы и работа в фоне"), lp(t = 8, ctx = act))
 
         // --- прочее ---
-        body.addView(sectionTitle(act, "Этот телефон"))
         val o = card(act)
         o.addView(tv(act, "Имя: ${Prefs.deviceName}", 15f))
         o.addView(btn(act, "Изменить имя") {
@@ -190,21 +196,32 @@ class DevicePage(act: MainActivity) : Page(act) {
                 .setNegativeButton("Отмена", null).show()
         }, lp(t = 8, ctx = act))
         o.addView(muted(act, "Плитка «Буфер на ПК» добавляется в шторку быстрых настроек (изменить → найти PocketLink).", 12f).apply { setPadding(0, act.dp(10), 0, 0) })
-        body.addView(fold("Имя телефона и быстрые настройки", o))
+        body.addView(fold("Этот телефон", o, false, "Имя и плитка быстрых настроек"), lp(t = 8, ctx = act))
     }
 
-    private fun fold(title: String, content: View, defaultOpen: Boolean = false): View {
+    private fun fold(title: String, content: View, defaultOpen: Boolean = false, subtitle: String? = null): View {
         val box = vbox(act)
         val open = if (expanded.contains("!" + title)) false else defaultOpen || expanded.contains(title)
         content.visibility = if (open) View.VISIBLE else View.GONE
-        val header = btn(act, (if (open) "−  " else "+  ") + title) {
-            val next = content.visibility != View.VISIBLE
-            content.visibility = if (next) View.VISIBLE else View.GONE
-            if (next) { expanded.add(title); expanded.remove("!" + title) }
-            else { expanded.remove(title); expanded.add("!" + title) }
-            (box.getChildAt(0) as android.widget.TextView).text = (if (next) "−  " else "+  ") + title
+        val chevron = tv(act, "›", 24f, T.muted).apply { rotation = if (open) 90f else 0f }
+        val header = hbox(act, 14).apply {
+            minimumHeight = act.dp(58)
+            background = ripple(roundBg(T.panel, 16, act, T.line, 1))
+            isClickable = true
+            contentDescription = title
+            val col = vbox(act)
+            col.addView(tv(act, title, 15f, T.text, true))
+            if (subtitle != null) col.addView(muted(act, subtitle, 12f), lp(t = 2, ctx = act))
+            addView(col, lp(0, weight = 1f, r = 8, ctx = act))
+            addView(chevron)
+            setOnClickListener {
+                val next = content.visibility != View.VISIBLE
+                content.visibility = if (next) View.VISIBLE else View.GONE
+                if (next) { expanded.add(title); expanded.remove("!" + title) }
+                else { expanded.remove(title); expanded.add("!" + title) }
+                chevron.rotation = if (next) 90f else 0f
+            }
         }
-        header.gravity = android.view.Gravity.CENTER_VERTICAL
         box.addView(header)
         box.addView(content, lp(t = 8, ctx = act))
         return box
@@ -213,8 +230,10 @@ class DevicePage(act: MainActivity) : Page(act) {
     private fun permRow(title: String, ok: Boolean, onClick: () -> Unit): View {
         val r = hbox(act).apply { setPadding(0, act.dp(6), 0, act.dp(6)) }
         r.addView(tv(act, title, 14f), lp(0, weight = 1f))
-        if (ok) r.addView(tv(act, "выдано", 13f, T.ok, true))
-        else r.addView(btn(act, "Выдать", 1) { onClick() }.apply { minHeight = act.dp(36) })
+        if (ok) r.addView(tv(act, "✓ выдано", 13f, T.ok, true))
+        else r.addView(btn(act, "Выдать", 1) { onClick() }.apply {
+            minHeight = act.dp(36); setPadding(act.dp(14), act.dp(4), act.dp(14), act.dp(4))
+        })
         return r
     }
 

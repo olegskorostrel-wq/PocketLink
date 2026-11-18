@@ -24,26 +24,38 @@ object T {
     var dark = true
     var bg = 0; var panel = 0; var panel2 = 0; var line = 0
     var text = 0; var muted = 0
-    val accent = Color.rgb(74, 128, 240)
-    val danger = Color.rgb(225, 80, 80)
-    val ok = Color.rgb(40, 180, 110)
+    var accentSoft = 0; var dangerSoft = 0; var okSoft = 0
+    val accent = Color.rgb(84, 132, 248)
+    val danger = Color.rgb(228, 84, 84)
+    val ok = Color.rgb(46, 184, 114)
 
     fun update(ctx: Context) {
         dark = (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         if (dark) {
-            bg = Color.rgb(16, 18, 24); panel = Color.rgb(28, 31, 40); panel2 = Color.rgb(40, 44, 56); line = Color.rgb(52, 57, 70)
-            text = Color.rgb(236, 238, 244); muted = Color.rgb(140, 148, 165)
+            bg = Color.rgb(13, 15, 20); panel = Color.rgb(23, 26, 34); panel2 = Color.rgb(34, 38, 50); line = Color.rgb(46, 51, 66)
+            text = Color.rgb(233, 236, 243); muted = Color.rgb(134, 142, 160)
+            accentSoft = Color.argb(48, 84, 132, 248)
         } else {
-            bg = Color.rgb(243, 245, 250); panel = Color.WHITE; panel2 = Color.rgb(232, 236, 245); line = Color.rgb(220, 225, 236)
-            text = Color.rgb(24, 28, 40); muted = Color.rgb(104, 112, 130)
+            bg = Color.rgb(244, 246, 251); panel = Color.WHITE; panel2 = Color.rgb(236, 239, 247); line = Color.rgb(224, 228, 238)
+            text = Color.rgb(22, 26, 38); muted = Color.rgb(106, 114, 132)
+            accentSoft = Color.argb(34, 84, 132, 248)
         }
+        dangerSoft = Color.argb(if (dark) 40 else 28, 228, 84, 84)
+        okSoft = Color.argb(if (dark) 40 else 30, 46, 184, 114)
     }
 }
 
 fun Context.dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
 
-fun roundBg(color: Int, radiusDp: Int, ctx: Context): GradientDrawable =
-    GradientDrawable().apply { setColor(color); cornerRadius = ctx.dp(radiusDp).toFloat() }
+fun roundBg(color: Int, radiusDp: Int, ctx: Context, strokeColor: Int = 0, strokeDp: Int = 0): GradientDrawable =
+    GradientDrawable().apply {
+        setColor(color)
+        cornerRadius = ctx.dp(radiusDp).toFloat()
+        if (strokeDp > 0) setStroke(ctx.dp(strokeDp), strokeColor)
+    }
+
+/** Шрифт для заголовков и подписей: средняя насыщенность выглядит аккуратнее жирного. */
+val UI_MEDIUM: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 
 fun ripple(base: android.graphics.drawable.Drawable): android.graphics.drawable.Drawable =
     RippleDrawable(ColorStateList.valueOf(Color.argb(50, 128, 128, 128)), base, null)
@@ -71,26 +83,31 @@ fun tv(ctx: Context, text: CharSequence, sizeSp: Float = 15f, color: Int = T.tex
         this.text = text
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
         setTextColor(color)
-        if (bold) typeface = Typeface.DEFAULT_BOLD
+        if (bold) typeface = UI_MEDIUM
     }
 
 fun muted(ctx: Context, text: CharSequence, sizeSp: Float = 13f) = tv(ctx, text, sizeSp, T.muted)
 
 fun card(ctx: Context, padDp: Int = 14): LinearLayout = vbox(ctx, padDp).apply {
-    background = roundBg(T.panel, 16, ctx)
+    background = roundBg(T.panel, 18, ctx, T.line, 1)
 }
 
-/** kind: 0 обычная, 1 основная (акцент), 2 опасная. */
+/** kind: 0 обычная, 1 основная (акцент), 2 опасная, 3 контурная. */
 fun btn(ctx: Context, text: String, kind: Int = 0, onClick: () -> Unit): TextView = TextView(ctx).apply {
     this.text = text
     setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-    typeface = Typeface.DEFAULT_BOLD
+    typeface = UI_MEDIUM
     gravity = Gravity.CENTER
     val fg = when (kind) { 1 -> Color.WHITE; 2 -> T.danger; else -> T.text }
     setTextColor(fg)
-    val bgc = when (kind) { 1 -> T.accent; else -> T.panel2 }
-    background = ripple(roundBg(bgc, 12, ctx))
-    minHeight = ctx.dp(44)
+    val shape = when (kind) {
+        1 -> roundBg(T.accent, 14, ctx)
+        2 -> roundBg(T.dangerSoft, 14, ctx)
+        3 -> roundBg(0, 14, ctx, T.line, 1)
+        else -> roundBg(T.panel2, 14, ctx)
+    }
+    background = ripple(shape)
+    minHeight = ctx.dp(46)
     setPadding(ctx.dp(16), ctx.dp(8), ctx.dp(16), ctx.dp(8))
     setOnClickListener { onClick() }
 }
@@ -112,7 +129,8 @@ fun input(ctx: Context, hint: String, multiline: Boolean = false): EditText = Ed
     setHintTextColor(T.muted)
     setTextColor(T.text)
     setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-    background = roundBg(T.panel2, 12, ctx)
+    background = roundBg(T.panel2, 14, ctx, T.line, 1)
+    minHeight = ctx.dp(48)
     setPadding(ctx.dp(14), ctx.dp(10), ctx.dp(14), ctx.dp(10))
     inputType = if (multiline) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
     else InputType.TYPE_CLASS_TEXT
@@ -123,9 +141,12 @@ fun switchRow(ctx: Context, title: String, desc: String?, checked: Boolean, onCh
     val row = hbox(ctx).apply { setPadding(0, ctx.dp(8), 0, ctx.dp(8)) }
     val col = vbox(ctx)
     col.addView(tv(ctx, title, 15f))
-    if (desc != null) col.addView(muted(ctx, desc, 12f))
-    row.addView(col, lp(0, weight = 1f))
+    if (desc != null) col.addView(muted(ctx, desc, 12f), lp(t = 2, ctx = ctx))
+    row.addView(col, lp(0, weight = 1f, r = 12, ctx = ctx))
     val sw = Switch(ctx).apply {
+        val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+        thumbTintList = ColorStateList(states, intArrayOf(Color.WHITE, if (T.dark) Color.rgb(176, 182, 196) else Color.WHITE))
+        trackTintList = ColorStateList(states, intArrayOf(T.accent, if (T.dark) Color.rgb(62, 68, 86) else Color.rgb(196, 202, 216)))
         isChecked = checked
         setOnCheckedChangeListener { _, v -> onChange(v) }
     }
@@ -134,7 +155,7 @@ fun switchRow(ctx: Context, title: String, desc: String?, checked: Boolean, onCh
 }
 
 fun sectionTitle(ctx: Context, text: String): TextView =
-    tv(ctx, text.uppercase(), 12f, T.muted, true).apply { setPadding(ctx.dp(4), ctx.dp(14), 0, ctx.dp(6)); letterSpacing = 0.06f }
+    tv(ctx, text.uppercase(), 11.5f, T.muted, true).apply { setPadding(ctx.dp(4), ctx.dp(18), 0, ctx.dp(8)); letterSpacing = 0.08f }
 
 fun spacer(ctx: Context, hDp: Int) = View(ctx).apply { layoutParams = LinearLayout.LayoutParams(1, ctx.dp(hDp)) }
 
@@ -158,12 +179,68 @@ fun FrameLayout.fill(v: View) = addView(v, FrameLayout.LayoutParams(-1, -1))
 
 /** Compact navigable settings row instead of an oversized button stack. */
 fun actionRow(ctx: Context, title: String, subtitle: String, onClick: () -> Unit): View = hbox(ctx, 12).apply {
-    minimumHeight = ctx.dp(60)
-    background = ripple(roundBg(T.panel2, 12, ctx))
+    minimumHeight = ctx.dp(58)
+    background = ripple(roundBg(T.panel2, 14, ctx))
     val col = vbox(ctx)
     col.addView(tv(ctx, title, 15f, T.text, true))
-    col.addView(muted(ctx, subtitle, 12f), lp(t = 3, ctx = ctx))
+    col.addView(muted(ctx, subtitle, 12f), lp(t = 2, ctx = ctx))
     addView(col, lp(0, weight = 1f, r = 8, ctx = ctx))
-    addView(tv(ctx, "›", 25f, T.muted))
+    addView(tv(ctx, "›", 24f, T.muted))
     setOnClickListener { onClick() }
 }
+
+/** Переключатель режимов в одну линию (сегменты в общей подложке). */
+class Segmented(private val ctx: Context, names: List<String>, private val onPick: (Int) -> Unit) {
+    val view: LinearLayout = hbox(ctx).apply {
+        background = roundBg(T.panel2, 14, ctx)
+        setPadding(ctx.dp(3), ctx.dp(3), ctx.dp(3), ctx.dp(3))
+    }
+    private val items: List<TextView> = names.mapIndexed { i, n ->
+        tv(ctx, n, 13f, T.muted, true).apply {
+            gravity = Gravity.CENTER
+            minHeight = ctx.dp(38)
+            setSingleLine()
+            setOnClickListener { onPick(i) }
+            view.addView(this, lp(0, weight = 1f))
+        }
+    }
+
+    fun select(sel: Int) {
+        items.forEachIndexed { i, t ->
+            val on = i == sel
+            t.setTextColor(if (on) Color.WHITE else T.muted)
+            t.background = if (on) roundBg(T.accent, 11, ctx) else null
+        }
+    }
+}
+
+/** Плашка-подсказка вместо пустого экрана: коротко, с необязательной кнопкой действия. */
+fun infoBanner(ctx: Context, text: String, actionText: String? = null, onAction: (() -> Unit)? = null): View = hbox(ctx, 12).apply {
+    background = roundBg(T.panel2, 14, ctx)
+    val dot = View(ctx).apply { background = roundBg(T.muted, 4, ctx) }
+    addView(dot, lp(ctx.dp(8), ctx.dp(8), r = 10, ctx = ctx))
+    addView(muted(ctx, text, 12.5f), lp(0, weight = 1f))
+    if (actionText != null && onAction != null) {
+        addView(tv(ctx, actionText, 13f, T.accent, true).apply {
+            setPadding(ctx.dp(12), ctx.dp(8), ctx.dp(4), ctx.dp(8))
+            setOnClickListener { onAction() }
+        })
+    }
+}
+
+/** Пустое состояние по центру экрана с необязательной кнопкой. */
+fun emptyState(ctx: Context, title: String, sub: String, actionText: String? = null, onAction: (() -> Unit)? = null): View =
+    vbox(ctx, 24).apply {
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(ctx.dp(24), ctx.dp(56), ctx.dp(24), ctx.dp(24))
+        val badge = FrameLayout(ctx).apply { background = roundBg(T.accentSoft, 28, ctx) }
+        badge.addView(ImageView(ctx).apply {
+            setImageResource(R.drawable.ic_remote)
+            imageTintList = ColorStateList.valueOf(T.accent)
+        }, FrameLayout.LayoutParams(ctx.dp(28), ctx.dp(28), Gravity.CENTER))
+        addView(badge, lp(ctx.dp(56), ctx.dp(56)))
+        addView(tv(ctx, title, 17f, T.text, true).apply { gravity = Gravity.CENTER }, lp(t = 14, ctx = ctx))
+        addView(muted(ctx, sub, 13f).apply { gravity = Gravity.CENTER }, lp(t = 6, ctx = ctx))
+        if (actionText != null && onAction != null)
+            addView(btn(ctx, actionText, 1) { onAction() }, lp(-2, -2, t = 16, ctx = ctx))
+    }
