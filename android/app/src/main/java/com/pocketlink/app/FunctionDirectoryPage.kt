@@ -17,7 +17,7 @@ class FunctionDirectoryPage(act: MainActivity) : Page(act) {
         Entry("Экран компьютера на телефоне", "трансляция монитор полный экран", { act.openUtility(ScreenPage(act)) }),
         Entry("Экран телефона на компьютере", "scrcpy скрапи usb wifi демонстрация управление", { act.openUtility(MirrorHelpPage(act)) }),
         Entry("Файлы и передача", "папки отправка загрузка скачать", { act.openUtility(FilesPage(act)) }),
-        Entry("Буфер обмена", "копировать вставить текст clipboard", { act.openUtility(HomePage(act)) }),
+        Entry("Буфер обмена", "копировать вставить текст clipboard", { act.openUtility(HomePage(act, true)) }),
         Entry("YouTube — поиск и пульт", "ютуб видео ролики обложки браузер", { act.openUtility(YouTubePage(act)) }),
         Entry("Звук и устройства воспроизведения", "микшер наушники монитор динамики колонки громкость", { act.openUtility(MixerPage(act)) }),
         Entry("Окна и состояние ПК", "температура память процессор яркость", { act.openUtility(DesktopPage(act)) }),
@@ -28,8 +28,11 @@ class FunctionDirectoryPage(act: MainActivity) : Page(act) {
         Entry("Телефон как веб-камера", "камера discord дискорд вебка", { act.openUtility(WebcamPage(act)) }),
         Entry("Телефон как микрофон", "голос звук запись", { act.openUtility(MicrophonePage(act)) }),
         Entry("Bluetooth-пульт и геймпад", "блютуз джойстик кнопки курки", { act.openUtility(BluetoothPage(act)) }),
-        Entry("Подключение и разрешения", "сопряжение qr сеть vpn исправить ошибка", { act.openUtility(DevicePage(act)) }),
-        Entry("Темы и оформление", "цвет светлая темная фиолетовая кастомизация", { act.openUtility(DevicePage(act)) }),
+        Entry("Подключение компьютера", "сопряжение qr сеть vpn исправить ошибка", { act.openUtility(DevicePage(act, "Подключить новый ПК")) }),
+        Entry("Разрешения Android", "уведомления камера доступ разрешить", { act.openUtility(DevicePage(act, "Разрешения Android")) }),
+        Entry("Обмен с телефоном", "синхронизация sms звонки фото автоподключение", { act.openUtility(DevicePage(act, "Обмен с телефоном")) }),
+        Entry("Настройки пульта и экрана", "тачпад чувствительность прокрутка качество кнопки громкости", { act.openUtility(DevicePage(act, "Пульт и экран")) }),
+        Entry("Темы и оформление", "цвет светлая темная фиолетовая кастомизация", { act.openUtility(DevicePage(act, "Оформление")) }),
         Entry("Обновления приложения", "версия github скачать apk", { act.openUtility(UpdatesPage(act)) })
     )
     private val list = vbox(act, 0)

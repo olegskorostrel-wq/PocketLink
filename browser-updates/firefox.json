@@ -1,0 +1,18 @@
+{
+  "addons": {
+    "pocketlink-youtube@pocketlink.local": {
+      "updates": [
+        {
+          "update_link": "https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.8.0-preview/PocketLink-Firefox.xpi",
+          "applications": {
+            "gecko": {
+              "strict_min_version": "142.0"
+            }
+          },
+          "update_hash": "sha256:9e5e87d1a3b52ae546a24792fe4ac4facaaa9f4881f584456f525ab11fc79406",
+          "version": "1.3.1"
+        }
+      ]
+    }
+  }
+}

@@ -13,7 +13,9 @@ import android.widget.EditText
 import android.widget.ScrollView
 
 /** Вкладка «Телефон»: подключение, сопряжение, что делиться с ПК, права. */
-class DevicePage(act: MainActivity) : Page(act) {
+class DevicePage(act: MainActivity, private val destination: String = "") : Page(act) {
+    private val destinations = mutableMapOf<String, View>()
+    private var destinationPending = destination.isNotEmpty()
     private val body = vbox(act, 12)
     private var found: List<Discovery.Found> = emptyList()
     private var scanning = false
@@ -37,6 +39,8 @@ class DevicePage(act: MainActivity) : Page(act) {
     }
 
     private fun render() {
+        destinations.clear()
+        if (destinationPending && destination in listOf("Подключить новый ПК", "Обмен с телефоном", "Пульт и экран", "Разрешения Android")) expanded.add(destination)
         body.removeAllViews()
         body.addView(pageHeading(act, "Настройки"))
         // --- состояние ---
@@ -79,6 +83,7 @@ class DevicePage(act: MainActivity) : Page(act) {
         appearance.addView(switchRow(act, "Передавать оформление на ПК", "На ПК включите «Следовать теме телефона». Можно отключить в любой момент.", Prefs.syncAppearanceToPc) { Prefs.syncAppearanceToPc = it; Hub.sendAppearance() }, lp(t = 8, ctx = act))
         body.addView(sectionTitle(act, "Оформление"))
         body.addView(appearance)
+        destinations["Оформление"] = appearance
         body.addView(actionRow(act, "Обновления PocketLink", "Проверка и установка новых версий") { act.openUtility(UpdatesPage(act)) }, lp(t = 8, ctx = act))
 
         // --- запомненные ПК ---
@@ -212,10 +217,18 @@ class DevicePage(act: MainActivity) : Page(act) {
         }, lp(t = 8, ctx = act))
         o.addView(muted(act, "Плитка «Буфер на ПК» добавляется в шторку быстрых настроек (изменить → найти PocketLink).", 12f).apply { setPadding(0, act.dp(10), 0, 0) })
         body.addView(fold("Этот телефон", o, false, "Имя и плитка быстрых настроек"), lp(t = 8, ctx = act))
+        if (destinationPending) root.post {
+            destinations[destination]?.let { target ->
+                val bounds = android.graphics.Rect(0, 0, target.width, target.height.coerceAtMost(act.dp(160)))
+                target.requestRectangleOnScreen(bounds, true)
+                destinationPending = false
+            }
+        }
     }
 
     private fun fold(title: String, content: View, defaultOpen: Boolean = false, subtitle: String? = null): View {
         val box = vbox(act)
+        destinations[title] = box
         val open = if (expanded.contains("!" + title)) false else defaultOpen || expanded.contains(title)
         content.visibility = if (open) View.VISIBLE else View.GONE
         val chevron = tv(act, "›", 24f, T.muted).apply { rotation = if (open) 90f else 0f }

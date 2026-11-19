@@ -35,7 +35,7 @@ class QaRunner : Instrumentation() {
         while (!predicate()) { if (System.nanoTime() > deadline) throw AssertionError("Timeout: $label"); Thread.sleep(100) }
     }
     private fun request(type: String, reply: String): JSONObject {
-        messages.clear(); Hub.send(type)
+        messages.clear(); ui { Hub.send(type) }
         val end = System.nanoTime()+TimeUnit.SECONDS.toNanos(20)
         while(System.nanoTime()<end) { val msg=messages.poll(1,TimeUnit.SECONDS) ?: continue; if(msg.optString("t")==reply) return msg }
         throw AssertionError("No response to $type")
@@ -81,6 +81,19 @@ class QaRunner : Instrumentation() {
                 check(opened is ToolsPage,"Function row actually opens PC tools")
                 check(ToolsPage::class.java.getDeclaredField("mode").apply { isAccessible=true }.getInt(opened)==3,"Function row opens power section")
                 shot("function-search")
+            }
+            test("settings search opens expanded destination") {
+                lateinit var page:DevicePage
+                ui { page=DevicePage(act,"Разрешения Android"); act.openUtility(page) }; waitForIdleSync()
+                waitFor("settings destination scrolls") { (page.root as android.widget.ScrollView).scrollY > 0 }
+                val heading=textViews(page.root).first { it.text.toString()=="Доступ к уведомлениям" }
+                check(heading.isShown,"Permissions section is expanded")
+            }
+            test("appearance search opens exact block") {
+                lateinit var page:DevicePage
+                ui { page=DevicePage(act,"Оформление"); act.openUtility(page) }; waitForIdleSync()
+                waitFor("appearance destination applied") { !DevicePage::class.java.getDeclaredField("destinationPending").apply { isAccessible=true }.getBoolean(page) }
+                check(textViews(page.root).any { it.text.toString()=="Цвет оформления" && it.getGlobalVisibleRect(android.graphics.Rect()) },"Appearance controls inside viewport")
             }
             if(options.getString("camera")=="true") test("phone Camera2 capture and explicit stop") {
                 ui { Prefs.cameraQuality=options.getString("quality") ?: "balanced" }

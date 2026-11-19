@@ -6,7 +6,8 @@ import android.content.Context
 import android.view.View
 import android.widget.ScrollView
 
-class HomePage(act: MainActivity) : Page(act) {
+class HomePage(act: MainActivity, private val showClipboard: Boolean = false) : Page(act) {
+    private var clipboardPending = showClipboard
     private var mirrorDialog: AlertDialog? = null
     private val body = vbox(act, 12)
     override val root: View = ScrollView(act).apply { isFillViewport = true; addView(body) }
@@ -40,7 +41,12 @@ class HomePage(act: MainActivity) : Page(act) {
         }, lp(0, weight = 1f, ctx = act))
         body.addView(row)
         body.addView(muted(act, "Включение по сети требует настройки Wake-on-LAN в BIOS и сетевой карте ПК.", 12f), lp(t = 6, ctx = act))
-        body.addView(sectionTitle(act, "Буфер обмена"))
+        val clipboardHeading = sectionTitle(act, "Буфер обмена")
+        body.addView(clipboardHeading)
+        if (clipboardPending) root.post {
+            clipboardHeading.requestRectangleOnScreen(android.graphics.Rect(0, 0, clipboardHeading.width, act.dp(180)), true)
+            clipboardPending = false
+        }
         body.addView(btn(act, "Буфер телефона → на ПК", 1) { online("clipboard") {
             val cm = act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val text = runCatching { cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(act)?.toString() }.getOrNull()
