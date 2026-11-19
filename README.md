@@ -1,6 +1,6 @@
 # PocketLink — Android 1.8.0 / Windows 1.7.0
 
-Готовится новый комплект: прямая камера телефона для Windows11 без ADB/OBS, поиск и каталог функций, исправления окон ПК, диагностика scrcpy и поиск YouTube в браузере. [Отчёт проверок и ограничения](docs/RELEASE-1.8.0.md), [инструкция камеры](docs/CAMERA.md).
+Опубликован новый комплект: прямая камера телефона для Windows11 без ADB/OBS, поиск и каталог функций, исправления окон ПК, диагностика scrcpy и поиск YouTube в браузере. [Отчёт проверок и ограничения](docs/RELEASE-1.8.0.md), [инструкция камеры](docs/CAMERA.md).
 
 Регистрация камеры и передача изображения Android→Windows Media Foundation проверены. Физический iQOO и интерфейс Discord ещё требуют проверки. Исправление Firefox1.3.1 ожидает подписи Mozilla; пока подписанный пакет1.3.0 сохраняет прежнее ограничение поиска.
 
@@ -21,8 +21,8 @@ Android-пульт для Windows: тачпад, клавиатура и сво�
 - **Для Claude и других разработчиков: [задание и карта интерфейса](docs/UI-HANDOFF.md).**
 - [Исходники Android](android/)
 - [Последние сборки и изменения](https://github.com/olegskorostrel-wq/PocketLink/releases)
-- [Android APK 1.6.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.7.4-preview/PocketLink.apk)
-- [Windows ZIP 1.5.0 со scrcpy, совместим с Android 1.6.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/windows-v1.5.0/PocketLink-Windows.zip)
+- [Android APK 1.8.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.8.0-preview/PocketLink.apk)
+- [Windows ZIP 1.7.0 с компонентом камеры и scrcpy](https://github.com/olegskorostrel-wq/PocketLink/releases/download/windows-v1.7.0/PocketLink-Windows.zip)
 
 ## Главная, состояние ПК и синхронизация оформления
 
@@ -34,7 +34,7 @@ Android-пульт для Windows: тачпад, клавиатура и сво�
 
 ## Полный комплект в одном релизе
 
-[Скачать все компоненты с одной страницы](https://github.com/olegskorostrel-wq/PocketLink/releases/tag/v1.7.4-preview): **PocketLink.apk**, **PocketLink-Windows.zip**, **PocketLink-Firefox.xpi**, **PocketLink-Chrome-Yandex.zip**. Начиная с этого комплекта, в каждый новый выпуск включаются все четыре пакета, даже если изменился только один. Версии компонентов перечислены в описании релиза. [Правило публикации](docs/RELEASE-CHECKLIST.md).
+[Скачать все компоненты с одной страницы](https://github.com/olegskorostrel-wq/PocketLink/releases/tag/v1.8.0-preview): **PocketLink.apk**, **PocketLink-Windows.zip**, **PocketLink-Firefox.xpi**, **PocketLink-Chrome-Yandex.zip**. Начиная с этого комплекта, в каждый новый выпуск включаются все четыре пакета, даже если изменился только один. Версии компонентов перечислены в описании релиза. [Правило публикации](docs/RELEASE-CHECKLIST.md).
 
 ## Экран телефона на ПК и ручной буфер
 
