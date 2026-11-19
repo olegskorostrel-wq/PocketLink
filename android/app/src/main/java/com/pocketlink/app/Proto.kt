@@ -21,6 +21,7 @@ object Proto {
     const val MSG = 0x60
     const val SCREEN = 0x70
     const val MICROPHONE = 0x71
+    const val CAMERA = 0x72
 
     const val UDP_MOVE = 1
     const val UDP_SCROLL = 2

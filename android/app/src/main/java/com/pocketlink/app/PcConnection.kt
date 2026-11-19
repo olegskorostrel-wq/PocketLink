@@ -85,6 +85,9 @@ class PcConnection(private val listener: Listener) {
     private val fileExec = Executors.newSingleThreadExecutor { r -> Thread(r, "pl-file").apply { isDaemon = true } }
     private val nextFileId = AtomicInteger(1)
     private val microphoneSending = AtomicBoolean(false)
+    private val cameraSending = AtomicBoolean(false)
+    val cameraBusy: Boolean get() = cameraSending.get() || !isConnected
+    private val cameraExec = Executors.newSingleThreadExecutor { r -> Thread(r, "pl-camera-send").apply { isDaemon = true } }
     private val audioExec = Executors.newSingleThreadExecutor { r -> Thread(r, "pl-audio").apply { isDaemon = true } }
     private val uploadReplies = ConcurrentHashMap<String, CompletableFuture<JSONObject>>()
     private val activeUploads = ConcurrentHashMap.newKeySet<String>()
@@ -195,6 +198,7 @@ class PcConnection(private val listener: Listener) {
         control.shutdownNow()
         fileExec.shutdownNow()
         audioExec.shutdownNow()
+        cameraExec.shutdownNow()
         for (reply in uploadReplies.values) reply.completeExceptionally(IOException("Connection closed"))
         uploadReplies.clear()
         mouseSignal.release()
@@ -411,6 +415,15 @@ class PcConnection(private val listener: Listener) {
                 finally { microphoneSending.set(false) }
             }
         } catch (_: RejectedExecutionException) { microphoneSending.set(false) }
+    }
+
+    fun sendCamera(jpeg: ByteArray, orientation: Int, mirrored: Boolean) {
+        if (!isConnected || jpeg.size > 900000 || !cameraSending.compareAndSet(false, true)) return
+        try { cameraExec.execute {
+            try { writeFrame(Proto.CAMERA, byteArrayOf(((orientation / 90) and 3).toByte(), if (mirrored) 1 else 0) + jpeg) }
+            catch (error: IOException) { close(describe(error)) }
+            finally { cameraSending.set(false) }
+        } } catch (_: RejectedExecutionException) { cameraSending.set(false) }
     }
 
     fun sendClipboard(text: String): Boolean {

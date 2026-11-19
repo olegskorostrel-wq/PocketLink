@@ -1,0 +1,114 @@
+package com.pocketlink.app.qa
+
+import android.app.Activity
+import android.app.Instrumentation
+import android.os.Bundle
+import android.content.Intent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import com.pocketlink.app.*
+import org.json.JSONObject
+import java.io.File
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+
+/** Runs only in the dedicated QA emulator against an isolated host. Never bundled in the app APK. */
+class QaRunner : Instrumentation() {
+    private var options = Bundle()
+    private lateinit var act: MainActivity
+    private val report = mutableListOf<String>()
+    private val messages = LinkedBlockingQueue<JSONObject>()
+    private var frames = 0
+    private lateinit var folder: File
+    override fun onCreate(arguments: Bundle?) { options = arguments ?: Bundle(); start() }
+    private fun ui(action: () -> Unit) = runOnMainSync { action() }
+    private fun check(ok: Boolean, what: String) { if (!ok) throw AssertionError(what) }
+    private fun test(name: String, action: () -> Unit) {
+        try { action(); report += "PASS $name" }
+        catch (error: Throwable) { report += "FAIL $name: ${error.javaClass.simpleName}: ${error.message}" }
+        sendStatus(0, Bundle().apply { putString("stream", report.last() + "\n") })
+        File(folder,"report.txt").writeText(report.joinToString("\n"))
+    }
+    private fun waitFor(label: String, seconds: Int = 15, predicate: () -> Boolean) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds.toLong())
+        while (!predicate()) { if (System.nanoTime() > deadline) throw AssertionError("Timeout: $label"); Thread.sleep(100) }
+    }
+    private fun request(type: String, reply: String): JSONObject {
+        messages.clear(); Hub.send(type)
+        val end = System.nanoTime()+TimeUnit.SECONDS.toNanos(20)
+        while(System.nanoTime()<end) { val msg=messages.poll(1,TimeUnit.SECONDS) ?: continue; if(msg.optString("t")==reply) return msg }
+        throw AssertionError("No response to $type")
+    }
+    private fun shot(name: String) { uiAutomation.takeScreenshot()?.let { bitmap -> File(folder,"$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }; bitmap.recycle() } }
+    private fun textViews(view: View): List<TextView> = (if(view is TextView) listOf(view) else emptyList()) + (if(view is ViewGroup) (0 until view.childCount).flatMap { textViews(view.getChildAt(it)) } else emptyList())
+    override fun onStart() {
+        folder=File(targetContext.getExternalFilesDir(null),"qa").apply { mkdirs() }
+        try {
+            act=startActivitySync(Intent(targetContext,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+            val observer=object:Hub.Observer { override fun onHub(ev:String,data:Any?) { if(ev=="json" && data is JSONObject) messages.offer(data); if(ev=="screen") frames++ } }
+            ui { Hub.observe(observer); Prefs.autoConnect=false; Prefs.clipAuto=false }
+            test("offline main navigation") {
+                for(index in 0..4) { ui { act.javaClass.getDeclaredMethod("select",Int::class.javaPrimitiveType).apply { isAccessible=true }.invoke(act,index) }; waitForIdleSync(); shot("offline-tab-$index") }
+            }
+            test("TLS pairing with isolated Windows host") {
+                val pin=options.getString("pairing") ?: throw AssertionError("Missing test pairing")
+                ui { Hub.connect("127.0.0.1",pin) }; waitFor("online",25) { Hub.state==Hub.State.ONLINE }; waitFor("paired key saved") { Prefs.lastPc()?.key!=null }
+            }
+            val pages=listOf<Pair<String,(MainActivity)->Page>>("Home" to { HomePage(it) },"Remote" to { RemotePage(it) },"PC" to { ToolsPage(it) },"Screen" to { ScreenPage(it) },"Settings" to { DevicePage(it) },"Files" to { FilesPage(it) },"YouTube" to { YouTubePage(it) },"Mixer" to { MixerPage(it) },"Windows" to { DesktopPage(it) },"Webcam" to { WebcamPage(it) },"Bluetooth" to { BluetoothPage(it) },"Microphone" to { MicrophonePage(it) },"Shortcuts" to { ShortcutCatalogPage(it,{ emptyList() },{}) },"Updates" to { UpdatesPage(it) })
+            for((name,factory)in pages) test("page $name renders online") {
+                lateinit var page:Page
+                ui { page=factory(act); act.openUtility(page) }; waitForIdleSync(); Thread.sleep(500)
+                check(page.root.width>0 && page.root.height>0,"Page measured")
+                shot("page-${name.lowercase()}")
+            }
+            test("desktop snapshot responds") { val r=request("desktop.get","desktop.state"); check(!r.has("error"),r.optString("error")) }
+            test("installed applications respond") { request("apps.get","apps.list") }
+            test("process list responds") { request("proc.get","proc.list") }
+            test("audio mixer responds") { request("mixer.get","mixer.list") }
+            test("file roots respond") { val r=request("fs.list","fs.list"); check(!r.has("error"),r.optString("error")) }
+            test("monitor list responds") { request("screen.monitors","screen.monitors") }
+            test("function directory search and navigation") {
+                lateinit var page:FunctionDirectoryPage
+                ui { page=FunctionDirectoryPage(act); act.openUtility(page) }; waitForIdleSync()
+                ui { textViews(page.root).filterIsInstance<android.widget.EditText>().first().setText("выключить") }
+                waitForIdleSync()
+                check(textViews(page.root).any { it.text.toString()=="Питание компьютера" },"Power alias finds function")
+                check(textViews(page.root).none { it.text.toString()=="YouTube — поиск и пульт" },"Unmatched entries hidden")
+                ui { textViews(page.root).first { it.text.toString()=="Питание компьютера" }.parent.let { (it as View).parent as View }.performClick() }
+                waitForIdleSync()
+                val opened=act.javaClass.getDeclaredField("utility").apply { isAccessible=true }.get(act)
+                check(opened is ToolsPage,"Function row actually opens PC tools")
+                check(ToolsPage::class.java.getDeclaredField("mode").apply { isAccessible=true }.getInt(opened)==3,"Function row opens power section")
+                shot("function-search")
+            }
+            if(options.getString("camera")=="true") test("phone Camera2 capture and explicit stop") {
+                ui { Prefs.cameraQuality=options.getString("quality") ?: "balanced" }
+                lateinit var page:WebcamPage
+                ui { page=WebcamPage(act); act.openUtility(page) }; waitForIdleSync()
+                ui { textViews(page.root).first { it.text.toString()=="Использовать как веб-камеру" }.performClick() }
+                waitFor("camera service starts",15) { PhoneCameraService.active }
+                Thread.sleep(3500); check(Hub.state==Hub.State.ONLINE,"Capture keeps encrypted connection")
+                if(options.getString("cameraHold")=="true") { sendStatus(0,Bundle().apply { putString("stream","CAMERA_READY_FOR_WINDOWS_READER\n") });Thread.sleep(25000) }
+                shot("camera-capture")
+                ui { textViews(page.root).first { it.text.toString()=="Остановить веб-камеру" }.performClick() }
+                waitFor("camera service stops",10) { !PhoneCameraService.active }
+            }
+            test("screen stream frames and landscape") {
+                lateinit var page:ScreenPage
+                ui { page=ScreenPage(act); act.openUtility(page) }; waitForIdleSync()
+                ui { textViews(page.root).first { it.text.toString()=="Старт" }.performClick() }
+                waitFor("screen frames",20) { frames>=2 }
+                ui { act.requestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+                Thread.sleep(1500); check(Hub.state==Hub.State.ONLINE,"Connection survives rotation"); check(page.root.width>page.root.height,"Landscape layout"); shot("screen-landscape")
+                ui { page.onHide(); act.requestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }; Thread.sleep(1200)
+            }
+            test("authenticated reconnect") {
+                ui { Hub.disconnect() }; waitFor("offline") { Hub.state==Hub.State.OFF }; ui { Hub.connect("127.0.0.1",null) }; waitFor("reconnected",25) { Hub.state==Hub.State.ONLINE }
+            }
+            ui { Hub.unobserve(observer); Hub.disconnect() }
+        } catch(error:Throwable) { report+="FATAL ${error.javaClass.simpleName}: ${error.message}" }
+        File(folder,"report.txt").writeText(report.joinToString("\n"))
+        finish(if(report.any { it.startsWith("FAIL") || it.startsWith("FATAL") }) Activity.RESULT_CANCELED else Activity.RESULT_OK,Bundle().apply { putString("stream",report.joinToString("\n")+"\n") })
+    }
+}

@@ -7,13 +7,17 @@ import android.view.View
 import android.widget.ScrollView
 
 class HomePage(act: MainActivity) : Page(act) {
+    private var mirrorDialog: AlertDialog? = null
     private val body = vbox(act, 12)
     override val root: View = ScrollView(act).apply { isFillViewport = true; addView(body) }
     override fun onShow() = render()
     override fun onHub(ev: String, data: Any?) {
         if (ev == "state" || ev == "config") render()
-        if (ev == "json" && data is org.json.JSONObject && data.optString("t") == "mirror.state")
-            AlertDialog.Builder(act).setTitle("Экран телефона на ПК").setMessage(data.optString("message")).setPositiveButton("Понятно", null).show()
+        if (ev == "json" && data is org.json.JSONObject && data.optString("t") == "mirror.state") {
+            mirrorDialog?.dismiss()
+            mirrorDialog = AlertDialog.Builder(act).setTitle("Экран телефона на ПК").setMessage(data.optString("message"))
+                .setPositiveButton("Понятно", null).setNeutralButton("Помощь") { _, _ -> act.openUtility(MirrorHelpPage(act)) }.show()
+        }
     }
     private fun online(permission: String, run: () -> Unit) {
         if (Hub.state != Hub.State.ONLINE) { Hub.toast("Нет связи с ПК"); return }
@@ -27,6 +31,7 @@ class HomePage(act: MainActivity) : Page(act) {
     private fun render() {
         body.removeAllViews()
         body.addView(pageHeading(act, "Быстрые действия"))
+        body.addView(btn(act, "Поиск и все функции") { act.openUtility(FunctionDirectoryPage(act)) }, lp(b = 12, ctx = act))
         val row = hbox(act)
         row.addView(btn(act, "Выключить ПК", 2) { power("shutdown", "Выключить ПК?") }, lp(0, weight = 1f, r = 8, ctx = act))
         row.addView(btn(act, "Включить ПК", 1) {

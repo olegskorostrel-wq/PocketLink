@@ -8,6 +8,7 @@ import org.json.JSONObject
 
 /** Вкладка «ПК»: команды, программы, процессы, питание, включение по сети. */
 class ToolsPage(act: MainActivity) : Page(act) {
+    fun openSection(index: Int) { setMode(index.coerceIn(0, 3)) }
     private val seg = Segmented(act, listOf("Команды", "Программы", "Процессы", "Питание")) { setMode(it) }
     private val body = android.widget.FrameLayout(act)
     private val views = List(4) { vbox(act) }

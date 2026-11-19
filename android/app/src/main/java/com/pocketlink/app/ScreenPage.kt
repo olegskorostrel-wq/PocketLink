@@ -131,6 +131,8 @@ class ScreenPage(act: MainActivity) : Page(act) {
     private val status = muted(act, "")
     private var running = false
     private var shown = false
+    private var monitorRequested = false
+    private var monitorDialog: android.app.AlertDialog? = null
     private lateinit var heading: View
     private lateinit var controls: View
     override val hasSettings = true
@@ -153,7 +155,7 @@ class ScreenPage(act: MainActivity) : Page(act) {
         val bar = hbox(act, 8)
         toggle = btn(act, "Старт", 1) { if (running) stop() else start() }
         bar.addView(toggle, lp(-2, -2, r = 8, ctx = act))
-        bar.addView(btn(act, "Монитор") { Hub.send("screen.monitors") }, lp(-2, -2, r = 8, ctx = act))
+        bar.addView(btn(act, "Монитор") { monitorRequested = true; Hub.send("screen.monitors") }, lp(-2, -2, r = 8, ctx = act))
         bar.addView(status, lp(0, weight = 1f))
         controls = bar
         r.addView(bar)
@@ -189,16 +191,18 @@ class ScreenPage(act: MainActivity) : Page(act) {
     }
 
     override fun onShow() { shown = true; layoutMode(); if (!running) status.text = "Поверните телефон боком для полного экрана. Настройки — ⚙." }
-    override fun onHide() { shown = false; if (running) stop(); act.setScreenImmersive(false) }
+    override fun onHide() { shown = false; monitorRequested = false; monitorDialog?.dismiss(); monitorDialog = null; if (running) stop(); act.setScreenImmersive(false) }
 
     override fun onHub(ev: String, data: Any?) {
         when (ev) {
             "json" -> {
                 val message = data as? JSONObject ?: return
-                if (message.optString("t") == "screen.monitors") {
+                if (message.optString("t") == "screen.monitors" && shown && monitorRequested) {
+                    monitorRequested = false
                     val list = message.optJSONArray("list") ?: return
                     val labels = Array(list.length()) { i -> list.getJSONObject(i).optString("name") }
-                    android.app.AlertDialog.Builder(act).setTitle("Экран ПК").setItems(labels) { _, i ->
+                    monitorDialog?.dismiss()
+                    monitorDialog = android.app.AlertDialog.Builder(act).setTitle("Экран ПК").setItems(labels) { _, i ->
                         Prefs.screenMonitor = list.getJSONObject(i).optInt("id")
                         if (running) { stop(); start() }
                     }.show()

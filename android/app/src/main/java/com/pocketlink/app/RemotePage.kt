@@ -13,6 +13,7 @@ import org.json.JSONObject
 
 /** Вкладка «Пульт»: тачпад, клавиатура, медиа и громкость, показ презентаций. */
 class RemotePage(act: MainActivity) : Page(act) {
+    fun openSection(index: Int) { setMode(index.coerceIn(0, 2)) }
     override val hasSettings = true
     override fun openSettings() = FunctionSettings.remote(act)
     private val pad = TouchpadView(act)

@@ -25,6 +25,12 @@ class SavedPc(var host: String, var name: String, var key: String?, var macs: Li
 }
 
 object Prefs {
+    var cameraQuality: String
+        get() = sp.getString("camera_quality", "balanced") ?: "balanced"
+        set(v) = sp.edit().putString("camera_quality", v).apply()
+    var cameraFacing: String
+        get() = sp.getString("camera_facing", "back") ?: "back"
+        set(v) = sp.edit().putString("camera_facing", v).apply()
     private lateinit var sp: SharedPreferences
 
     fun init(ctx: Context) {
