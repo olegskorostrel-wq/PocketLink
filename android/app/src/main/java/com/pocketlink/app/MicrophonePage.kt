@@ -59,6 +59,7 @@ class MicrophonePage(act: MainActivity) : Page(act) {
         when (message.optString("t")) {
             "microphone.devices" -> {
                 if (!shown) return
+                if (message.has("message")) { choosing = false; status.text = message.optString("message"); return }
                 val devices = message.optJSONArray("items") ?: return
                 if (!choosing) {
                     for (i in 0 until devices.length()) {
