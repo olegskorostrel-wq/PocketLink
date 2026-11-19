@@ -1,6 +1,6 @@
 ## Android1.8.1 / Windows1.7.1
 
-Подготовлены точные переходы поиска, встроенная настройка микрофона VB-CABLE и проверка настоящего процесса обновления Windows. [Изменения и пределы проверки](docs/RELEASE-1.8.1.md), [микрофон для Discord](docs/MICROPHONE.md). Firefox1.3.2 с автоматическими обновлениями отправлен Mozilla; до одобрения доступна подписанная1.3.1.
+Опубликованы точные переходы поиска, встроенная настройка микрофона VB-CABLE и проверка настоящего процесса обновления Windows. [Изменения и пределы проверки](docs/RELEASE-1.8.1.md), [микрофон для Discord](docs/MICROPHONE.md). Firefox1.3.2 одобрен и подписан Mozilla; после однократной установки нового XPI дальнейшие обновления получает через GitHub автоматически при включённых автообновлениях Firefox.
 
 # PocketLink — Android 1.8.0 / Windows 1.7.0
 
@@ -25,8 +25,8 @@ Android-пульт для Windows: тачпад, клавиатура и сво�
 - **Для Claude и других разработчиков: [задание и карта интерфейса](docs/UI-HANDOFF.md).**
 - [Исходники Android](android/)
 - [Последние сборки и изменения](https://github.com/olegskorostrel-wq/PocketLink/releases)
-- [Android APK 1.8.0](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.8.0-preview/PocketLink.apk)
-- [Windows ZIP 1.7.0 с компонентом камеры и scrcpy](https://github.com/olegskorostrel-wq/PocketLink/releases/download/windows-v1.7.0/PocketLink-Windows.zip)
+- [Android APK 1.8.1](https://github.com/olegskorostrel-wq/PocketLink/releases/download/v1.8.1-preview/PocketLink.apk)
+- [Windows ZIP 1.7.1 с компонентом камеры и scrcpy](https://github.com/olegskorostrel-wq/PocketLink/releases/download/windows-v1.7.1/PocketLink-Windows.zip)
 
 ## Главная, состояние ПК и синхронизация оформления
 
