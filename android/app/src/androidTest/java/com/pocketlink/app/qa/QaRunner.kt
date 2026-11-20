@@ -122,6 +122,59 @@ class QaRunner : Instrumentation() {
             test("authenticated reconnect") {
                 ui { Hub.disconnect() }; waitFor("offline") { Hub.state==Hub.State.OFF }; ui { Hub.connect("127.0.0.1",null) }; waitFor("reconnected",25) { Hub.state==Hub.State.ONLINE }
             }
+            test("durable photo queue survives source loss and binds to a PC") {
+                val directory="qa-outbox-"+java.util.UUID.randomUUID()
+                val store=UploadOutbox(act,directory)
+                val data=ByteArray(160000){(it%251).toByte()}
+                val fingerprint=Prefs.lastPc()!!.fingerprint
+                val item=store.enqueue("Фото с телефона.jpg",fingerprint){data.inputStream()}
+                data.fill(0)
+                val restored=UploadOutbox(act,directory).load().single()
+                check(restored.id==item.id && restored.name=="Фото с телефона.jpg" && restored.fingerprint==fingerprint,"Queue metadata survives recreation")
+                val hash=java.security.MessageDigest.getInstance("SHA-256").digest(restored.file.readBytes()).joinToString(""){"%02x".format(it.toInt() and 255)}
+                check(hash==restored.hash,"Private copy keeps the original photo bytes")
+                store.remove(item.id); check(store.load().isEmpty(),"Cancel removes durable photo")
+            }
+            test("automatic reconnect after abrupt socket loss") {
+                repeat(3) {
+                    val previous=Hub.conn!!
+                    val socket=PcConnection::class.java.getDeclaredField("socket").apply{isAccessible=true}.get(previous) as java.net.Socket
+                    val start=android.os.SystemClock.elapsedRealtime(); socket.close()
+                    waitFor("automatic key reconnect",10){Hub.state==Hub.State.ONLINE && Hub.conn!==previous}
+                    check(android.os.SystemClock.elapsedRealtime()-start<8000,"Fast reconnect without manual pairing")
+                }
+            }
+            if(options.getString("silence")=="true") test("silent TCP connection recovers without waiting 45 seconds") {
+                val previous=Hub.conn!!
+                request("qa.silence","qa.silence.ready")
+                val started=android.os.SystemClock.elapsedRealtime()
+                waitFor("heartbeat reconnect",22){Hub.state==Hub.State.ONLINE && Hub.conn!==previous}
+                check(android.os.SystemClock.elapsedRealtime()-started<20000,"Watchdog bounds silent connection")
+                request("desktop.get","desktop.state")
+            }
+            test("photo queued offline sends automatically and retains its name") {
+                ui { Hub.disconnect() }; waitFor("offline before share"){Hub.state==Hub.State.OFF}
+                val photo=File(act.cacheDir,"qa-photo-source.bin").apply{writeBytes(ByteArray(900000){(it%239).toByte()})}
+                ui { check(Hub.sendUri(android.net.Uri.fromFile(photo),"Фото QA очередь.jpg"),"Share accepted offline") }
+                waitFor("photo automatically sent",35){Hub.transfers().any{it.name=="Фото QA очередь.jpg" && it.state=="done"}}
+                photo.delete()
+            }
+            test("photo upload resumes after an interrupted data stream") {
+                val uploadName="QA interrupted "+java.util.UUID.randomUUID()+".jpg"
+                val photo=File(act.cacheDir,"qa-interrupted.bin").apply{writeBytes(ByteArray(8*1024*1024){(it%251).toByte()})}
+                var interrupted=false
+                val breaker=object:Hub.Observer { override fun onHub(ev:String,data:Any?) {
+                    if(ev=="transfer" && data is Transfer && data.name==uploadName && data.done>0 && data.done<data.size && !interrupted) {
+                        interrupted=true
+                        Hub.conn?.let { connection -> Hub.work.execute { runCatching { (PcConnection::class.java.getDeclaredField("socket").apply{isAccessible=true}.get(connection) as java.net.Socket).close() } } }
+                    }
+                } }
+                ui { Hub.observe(breaker); Hub.sendUri(android.net.Uri.fromFile(photo),uploadName) }
+                try {
+                    waitFor("interrupted photo completes",60){Hub.transfers().any{it.name==uploadName && it.state=="done"}}
+                    check(interrupted,"Actual TCP stream interrupted during upload")
+                } finally { ui { Hub.unobserve(breaker) }; photo.delete() }
+            }
             ui { Hub.unobserve(observer); Hub.disconnect() }
         } catch(error:Throwable) { report+="FATAL ${error.javaClass.simpleName}: ${error.message}" }
         File(folder,"report.txt").writeText(report.joinToString("\n"))

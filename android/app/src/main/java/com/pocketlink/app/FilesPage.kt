@@ -28,6 +28,7 @@ class FilesPage(act: MainActivity) : Page(act) {
     private var loaded = false
     private var lastClip = ""
     private var mode = 0
+    fun openTransfers() { setMode(1) }
 
     override val root: View = vbox(act).also { r ->
         r.addView(pageHeading(act, "Файлы"), lp(l = 12, r = 12, ctx = act))
@@ -130,7 +131,7 @@ class FilesPage(act: MainActivity) : Page(act) {
             val c = card(act, 12)
             val head = hbox(act)
             head.addView(tv(act, (if (t.incoming) "↓ " else "↑ ") + t.name, 14f).apply { setSingleLine(); ellipsize = android.text.TextUtils.TruncateAt.MIDDLE }, lp(0, weight = 1f))
-            val stText = when (t.state) { "done" -> "готово"; "failed" -> "ошибка"; else -> "${if (t.size > 0) t.done * 100 / t.size else 0}%" }
+            val stText = when (t.state) { "queued" -> "ожидает подключения к своему ПК"; "cancelled" -> "отменено"; "done" -> "готово"; "failed" -> "ошибка · продолжится после подключения"; else -> "${if (t.size > 0) t.done * 100 / t.size else 0}%" }
             head.addView(tv(act, stText, 13f, if (t.state == "failed") T.danger else if (t.state == "done") T.ok else T.muted, true))
             c.addView(head)
             c.addView(muted(act, fmtSize(t.size), 12f))
@@ -140,8 +141,8 @@ class FilesPage(act: MainActivity) : Page(act) {
                 }, lp(t = 6, ctx = act))
             }
             if (t.id.startsWith("u")) {
-                if (t.state == "active") c.addView(btn(act, "Отменить") { Hub.cancelUpload(t.id) })
-                else if (t.state == "failed") c.addView(btn(act, "Продолжить передачу") { Hub.retryUpload(t.id) })
+                if (t.state == "active" || t.state == "queued" || t.state == "failed") c.addView(btn(act, "Отменить") { Hub.cancelUpload(t.id) })
+                if (t.state == "failed" || t.state == "queued") c.addView(btn(act, "Продолжить передачу") { Hub.retryUpload(t.id) })
             }
             if (t.id.startsWith("d") && t.state == "active")
                 c.addView(btn(act, "Отменить загрузку") { Hub.cancelUpload(t.id) })

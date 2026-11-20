@@ -92,6 +92,8 @@ class PcConnection(private val listener: Listener) {
     private val uploadReplies = ConcurrentHashMap<String, CompletableFuture<JSONObject>>()
     private val activeUploads = ConcurrentHashMap.newKeySet<String>()
     private val cancelledUploads = ConcurrentHashMap.newKeySet<String>()
+    @Volatile private var lastReceive = android.os.SystemClock.elapsedRealtime()
+    @Volatile private var healthDeadline = Long.MAX_VALUE
 
     private val mouseSignal = Semaphore(0)
     private val mouseLock = Any()
@@ -113,11 +115,26 @@ class PcConnection(private val listener: Listener) {
                 } else LocalNetwork.socket(host)
                 socket = raw
                 raw.tcpNoDelay = true
-                if (!throughRelay) raw.connect(InetSocketAddress(host, Proto.TCP_PORT), 8000)
-                raw.soTimeout = 8000
+                raw.keepAlive = true
+                if (closed.get()) { raw.close(); return@thread }
+                if (!throughRelay) raw.connect(InetSocketAddress(host, Proto.TCP_PORT), 2500)
+                raw.soTimeout = 5000
                 val s = PinnedTls.connect(raw, host, fingerprint)
                 socket = s
-                val input = DataInputStream(s.getInputStream())
+                if (closed.get()) { s.close(); return@thread }
+                val monitored = object : java.io.FilterInputStream(s.getInputStream()) {
+                    override fun read(buffer: ByteArray, offset: Int, count: Int): Int {
+                        val received = super.read(buffer, offset, count)
+                        if (received > 0) { lastReceive = android.os.SystemClock.elapsedRealtime(); healthDeadline = Long.MAX_VALUE }
+                        return received
+                    }
+                    override fun read(): Int {
+                        val value = super.read()
+                        if (value >= 0) { lastReceive = android.os.SystemClock.elapsedRealtime(); healthDeadline = Long.MAX_VALUE }
+                        return value
+                    }
+                }
+                val input = DataInputStream(monitored)
                 out = s.getOutputStream()
 
                 val (type, nonce) = readFrame(input)
@@ -146,9 +163,10 @@ class PcConnection(private val listener: Listener) {
                 }
                 if (rType != Proto.AUTH_OK || rData.size < 10) throw IOException("bad auth reply")
 
-                s.soTimeout = 45000 // PING идёт раз в 5 с, 30 с тишины = связь потеряна
+                s.soTimeout = 45000 // Backup read timeout; the independent heartbeat watchdog reconnects earlier.
 
                 isConnected = true
+                lastReceive = android.os.SystemClock.elapsedRealtime()
                 downloads = ResumableDownload(Hub.app, fingerprint, ::sendJson, listener::onTransfer)
                 listener.onConnected(host)
                 startMouseSender()
@@ -189,6 +207,12 @@ class PcConnection(private val listener: Listener) {
     }
 
     fun disconnect() = close(null)
+    fun invalidate(reason: String) = close(reason)
+    fun checkNow() {
+        if (!isConnected || closed.get()) return
+        if (android.os.SystemClock.elapsedRealtime() - lastReceive > 5000) healthDeadline = android.os.SystemClock.elapsedRealtime() + 3000
+        thread(name="pl-health-probe",isDaemon=true) { runCatching { writeFrame(Proto.PING, ByteArray(0)) } }
+    }
 
     private fun cleanup() {
         isConnected = false
@@ -207,7 +231,11 @@ class PcConnection(private val listener: Listener) {
 
     private fun close(reason: String?) {
         if (!closed.compareAndSet(false, true)) return
-        cleanup()
+        isConnected = false
+        // TLS close can flush bytes and block; never perform it on Android's UI thread.
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
+            thread(name="pl-close",isDaemon=true) { cleanup() }
+        else cleanup()
         if (reason != null) listener.onDisconnected(reason)
     }
 
@@ -342,9 +370,19 @@ class PcConnection(private val listener: Listener) {
     }
 
     private fun startKeepAlive() = thread(name = "pl-ping", isDaemon = true) {
+        var checked = android.os.SystemClock.elapsedRealtime()
+        var nextPing = checked
         while (!closed.get()) {
-            try { Thread.sleep(5000) } catch (_: InterruptedException) { return@thread }
-            submit { writeFrame(Proto.PING, ByteArray(0)) }
+            try { Thread.sleep(1000) } catch (_: InterruptedException) { return@thread }
+            val now = android.os.SystemClock.elapsedRealtime()
+            // Give a live socket a chance to answer after Android wakes from deep sleep.
+            if (now - checked > 10000) { lastReceive = now; healthDeadline = now + 5000 }
+            checked = now
+            if (now > healthDeadline || now - lastReceive > (if (Hub.uiVisible) 12000 else 25000)) { close("Восстанавливаю связь с ПК"); return@thread }
+            if (now >= nextPing) {
+                nextPing = now + 4000
+                submit { writeFrame(Proto.PING, ByteArray(0)) }
+            }
         }
     }
 
@@ -464,6 +502,7 @@ class PcConnection(private val listener: Listener) {
         try {
             fileExec.execute {
                 val transfer = Transfer("u$id", false, name, size)
+                val power = TransferPower.acquire()
                 listener.onTransfer(transfer)
                 try {
                     val offsetReply = CompletableFuture<JSONObject>()
@@ -504,6 +543,7 @@ class PcConnection(private val listener: Listener) {
                 } catch (_: Exception) {
                     transfer.state = if (id in cancelledUploads) "cancelled" else "failed"
                 } finally {
+                    TransferPower.release(power)
                     uploadReplies.remove(id)
                     activeUploads.remove(id)
                     listener.onTransfer(transfer)

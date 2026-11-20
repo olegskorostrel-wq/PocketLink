@@ -12,8 +12,8 @@ android {
         minSdk = 29
         targetSdk = 35
         testInstrumentationRunner = "com.pocketlink.app.qa.QaRunner"
-        versionCode = 18
-        versionName = "1.8.1"
+        versionCode = 19
+        versionName = "1.8.2"
     }
 
     buildTypes {
@@ -37,3 +37,5 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-ktx:1.9.3")
 }
+
+

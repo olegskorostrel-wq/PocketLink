@@ -7,7 +7,7 @@ import java.net.SocketTimeoutException
 
 /** Поиск ПК в локальной сети через UDP-broadcast. Вызывать не из главного потока. */
 object Discovery {
-    data class Found(val host: String, val name: String)
+    data class Found(val host: String, val name: String, val fingerprint: String = "")
 
     fun scan(timeoutMs: Long = 1500): List<Found> {
         val result = mutableListOf<Found>()
@@ -28,7 +28,8 @@ object Discovery {
                         socket.receive(p)
                         val parts = String(p.data, 0, p.length).split("|")
                         if (parts.size >= 3 && parts[0] == "PLHERE") {
-                            result += Found(p.address.hostAddress ?: continue, parts[1])
+                            val fingerprint = parts.getOrNull(3)?.lowercase()?.takeIf { it.matches(Regex("[a-f0-9]{64}")) } ?: ""
+                            result += Found(p.address.hostAddress ?: continue, parts[1], fingerprint)
                         }
                     } catch (_: SocketTimeoutException) {
                     }

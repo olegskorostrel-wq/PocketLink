@@ -11,6 +11,29 @@ import java.net.Socket
 
 /** Route only home-network control sockets directly over Wi-Fi; the user's VPN stays active. */
 object LocalNetwork {
+    private var watching = false
+    fun watch(context: Context, changed: () -> Unit) {
+        if (watching) return
+        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        var previous = key(manager)
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            private fun update() { val next = key(manager); if (next != previous) { previous = next; changed() } }
+            override fun onAvailable(network: Network) = update()
+            override fun onLost(network: Network) = update()
+            override fun onLinkPropertiesChanged(network: Network, properties: android.net.LinkProperties) = update()
+        }
+        runCatching {
+            manager.registerNetworkCallback(android.net.NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build(), callback)
+            watching = true
+        }
+    }
+    private fun key(manager: ConnectivityManager): String = runCatching {
+        manager.allNetworks.mapNotNull { network ->
+            val caps = manager.getNetworkCapabilities(network)
+            if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true && !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN))
+                network.toString() + ":" + manager.getLinkProperties(network)?.linkAddresses?.joinToString(",") else null
+        }.sorted().joinToString(";")
+    }.getOrDefault("")
     private fun wifi(): Network? = runCatching {
         val manager = Hub.app.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         manager.allNetworks.firstOrNull { network ->

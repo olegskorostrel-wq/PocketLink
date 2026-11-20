@@ -194,6 +194,7 @@ class MainActivity : ComponentActivity(), Hub.Observer {
     override fun onStart() {
         super.onStart()
         Hub.uiVisible = true
+        Hub.foreground()
         Hub.observe(this)
         flushShares()
         clipboard.addPrimaryClipChangedListener(clipListener)
@@ -454,15 +455,15 @@ class MainActivity : ComponentActivity(), Hub.Observer {
         else i.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)) ?: emptyList()
 
     private fun flushShares() {
+        val uris = pendingUris.toList().filter { Hub.sendUri(it) }
+        pendingUris.removeAll(uris.toSet())
+        if (uris.isNotEmpty()) { Hub.connectForShare(); openUtility(FilesPage(this).apply { openTransfers() }) }
         if (Hub.state != Hub.State.ONLINE) {
-            if (pendingUris.isNotEmpty() || pendingTexts.isNotEmpty()) Hub.toast("Нет связи с ПК: отправлю после подключения")
+            if (uris.isNotEmpty() || pendingTexts.isNotEmpty()) { Hub.connectForShare(); Hub.toast("Подключаюсь к ПК. Файлы отправятся автоматически") }
             return
         }
-        val uris = pendingUris.toList(); pendingUris.clear()
         val texts = pendingTexts.toList(); pendingTexts.clear()
-        uris.forEach { Hub.sendUri(it) }
         texts.forEach { Hub.send("share.text", "text" to it) }
-        if (uris.isNotEmpty()) { openUtility(FilesPage(this)) }
         if (texts.isNotEmpty()) Hub.toast("Текст отправлен на ПК")
     }
 }

@@ -170,7 +170,7 @@ object Prefs {
     fun savePc(pc: SavedPc) {
         val list = pcs()
         // один ПК = одна запись; ищем по имени, чтобы смена IP не плодила дубликаты
-        val i = list.indexOfFirst { it.name == pc.name }
+        val i = list.indexOfFirst { it.fingerprint == pc.fingerprint || it.fingerprint.isEmpty() && it.name == pc.name }
         if (i >= 0) list[i] = pc else list += pc
         writePcs(list)
         lastHost = pc.host

@@ -52,10 +52,17 @@ object Hub {
     var lastError = ""
 
     private val transferMap = LinkedHashMap<String, Transfer>()
-    private data class Upload(val id: String, val uri: Uri, val name: String, val size: Long, val hash: String)
+    private data class Upload(val id: String, val uri: Uri, val name: String, val size: Long, val hash: String, val fingerprint: String)
     private val uploads = java.util.concurrent.ConcurrentHashMap<String, Upload>()
+    private val uploadRetries = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private lateinit var outbox: UploadOutbox
+    private var targetPc: SavedPc? = null
+    private var activeFingerprint = ""
+    private var attemptStarted = 0L
+    private var discovering = false
+    private var lastDiscovery = 0L
 
-    private var gen = 0
+    @Volatile private var gen = 0
     private var wantOnline = false
     private var host = ""
     private var pin: String? = null
@@ -67,6 +74,15 @@ object Hub {
         inited = true
         app = ctx.applicationContext
         Prefs.init(app)
+        outbox = UploadOutbox(app)
+        LocalNetwork.watch(app) { networkChanged() }
+        work.execute {
+            for (item in outbox.load()) {
+                val upload = Upload(item.id, Uri.fromFile(item.file), item.name, item.size, item.hash, item.fingerprint)
+                uploads[item.id] = upload
+                main.post { showQueued(upload); resumeUpload(upload) }
+            }
+        }
     }
 
     fun observe(o: Observer) { if (!observers.contains(o)) observers.add(o) }
@@ -102,6 +118,7 @@ object Hub {
             LinkService.start(app)
             wantOnline = true
             host = h.trim()
+            targetPc = Prefs.pcByHost(host)
             pin = pinCode
             attempt = 0
             lastError = ""
@@ -124,6 +141,8 @@ object Hub {
     private val retry = Runnable { if (wantOnline && state != State.ONLINE) startAttempt() }
 
     private fun startAttempt() {
+        main.removeCallbacks(retry)
+        attemptStarted = android.os.SystemClock.elapsedRealtime()
         gen++
         conn?.disconnect()
         val my = gen
@@ -131,7 +150,7 @@ object Hub {
         conn = c
         updateLinkState(State.CONNECTING)
 
-        val saved = Prefs.pcByHost(host)
+        val saved = targetPc ?: Prefs.pcByHost(host)
         val usePin = pin
         val mode: Int
         val secret: ByteArray
@@ -157,6 +176,7 @@ object Hub {
             fingerprint = saved.fingerprint
             mode = Proto.AUTH_KEY; secret = Base64.decode(key, Base64.NO_WRAP)
         }
+        activeFingerprint = fingerprint
         c.connect(host, mode, secret, Prefs.deviceId, Prefs.deviceName, fingerprint)
     }
 
@@ -164,22 +184,55 @@ object Hub {
         lastError = reason
         if (!wantOnline) { goOffline(reason); return }
         attempt++
-        val delay = minOf(2000L * attempt, 20000L)
+        val delay = if (uiVisible || uploads.isNotEmpty()) minOf(350L * attempt, 3000L) else minOf(1000L * attempt, 12000L)
         updateLinkState(State.CONNECTING)
         main.removeCallbacks(retry)
         main.postDelayed(retry, delay)
-        // каждый третий раз пробуем найти ПК по имени: у него мог смениться IP
-        if (attempt % 3 == 0) work.execute { rediscover() }
+        // Search immediately after the first failure; keep the pinned identity until authentication.
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (pin == null && !discovering && now - lastDiscovery > 3000) {
+            discovering = true; lastDiscovery = now
+            work.execute { rediscover() }
+        }
     }
 
     private fun rediscover() {
-        val name = Prefs.pcByHost(host)?.name ?: return
-        val found = Discovery.scan(1500).firstOrNull { it.name == name } ?: return
+        val identity = targetPc
+        val found = identity?.let { pc -> Discovery.scan(1000).firstOrNull {
+            it.host != host && (it.fingerprint == pc.fingerprint || it.fingerprint.isEmpty() && it.name.equals(pc.name, ignoreCase = true))
+        } }
         main.post {
-            if (wantOnline && state != State.ONLINE && found.host != host) {
-                Prefs.pcByHost(host)?.let { it.host = found.host; Prefs.savePc(it) }
+            discovering = false
+            if (found != null && targetPc === identity && wantOnline && state != State.ONLINE && found.host != host) {
                 host = found.host
+                // Never save an unauthenticated UDP advertisement as the trusted PC address.
+                startAttempt()
             }
+        }
+    }
+
+    fun foreground() {
+        main.post {
+            conn?.checkNow()
+            if (wantOnline && state != State.ONLINE && android.os.SystemClock.elapsedRealtime() - attemptStarted > 6000) startAttempt()
+            else autoConnectIfNeeded()
+        }
+    }
+    private fun networkChanged() {
+        main.post {
+            if (wantOnline) {
+                if (state == State.ONLINE) conn?.invalidate("Сеть изменилась, восстанавливаю связь")
+                main.removeCallbacks(retry); main.postDelayed(retry, 250)
+            }
+            else autoConnectIfNeeded()
+        }
+    }
+    fun connectForShare() {
+        main.post {
+            if (state == State.ONLINE) { conn?.checkNow(); return@post }
+            if (wantOnline) { if (android.os.SystemClock.elapsedRealtime() - attemptStarted > 4000) startAttempt(); return@post }
+            val pc = Prefs.lastPc()
+            if (pc?.key != null) connect(pc.host, null) else toast("Сначала подключите ПК в настройках")
         }
     }
 
@@ -229,7 +282,7 @@ object Hub {
                 val msg = when (reason) {
                     Proto.FAIL_UNKNOWN -> {
                         // ПК забыл этот телефон: старый ключ бесполезен
-                        Prefs.pcByHost(host)?.let { it.key = null; Prefs.savePc(it) }
+                        (targetPc ?: Prefs.pcByHost(host))?.let { it.key = null; Prefs.savePc(it) }
                         "ПК не знает этот телефон: введите код сопряжения заново"
                     }
                     Proto.FAIL_PAIRING_OFF -> "На ПК выключены новые сопряжения"
@@ -263,7 +316,13 @@ object Hub {
 
         override fun onTransfer(t: Transfer) {
             if (!live()) return
-            if (t.id.startsWith("u") && t.state == "done") uploads.remove(t.id.substring(1))
+            if (t.id.startsWith("u") && t.state == "done") {
+                val id = t.id.substring(1); uploads.remove(id); uploadRetries.remove(id); work.execute { outbox.remove(id) }
+            } else if (t.id.startsWith("u") && t.state == "failed") {
+                val id = t.id.substring(1)
+                val count = uploadRetries.merge(id, 1) { a,b -> a+b } ?: 1
+                main.postDelayed({ if (live() && wantOnline) uploads[id]?.let { resumeUpload(it) } }, minOf(1500L * count, 30000L))
+            }
             synchronized(transferMap) {
                 transferMap[t.id] = t
                 while (transferMap.size > 40) {
@@ -308,6 +367,7 @@ object Hub {
                 m.optJSONObject("allow")?.let { allow = it }
                 m.optJSONArray("commands")?.let { commands = it }
                 emit("config")
+                for (upload in uploads.values) resumeUpload(upload)
             }
             "pc.status" -> main.post { if (g == gen) { status = m; emit("status", m) } }
             "clip.apply" -> main.post {
@@ -366,13 +426,15 @@ object Hub {
             for (i in 0 until a.length()) a.optJSONObject(i)?.optString("mac")?.takeIf { it.isNotEmpty() }?.let { ml += it }
         }
         macs = ml
-        val prev = Prefs.pcByHost(host) ?: Prefs.pcs().firstOrNull { it.name == pcName }
+        val prev = targetPc ?: Prefs.pcByHost(host) ?: Prefs.pcs().firstOrNull { it.name == pcName }
         val key = m.optString("key").ifEmpty { prev?.key }
-        val fingerprint = pin?.substringAfter('.')?.lowercase() ?: Prefs.pcByHost(host)?.fingerprint ?: return
-        Prefs.savePc(SavedPc(host, pcName, key, ml, fingerprint))
+        val fingerprint = activeFingerprint.takeIf { it.length == 64 } ?: return
+        targetPc = SavedPc(host, pcName, key, ml, fingerprint)
+        Prefs.savePc(targetPc!!)
         pin = null // после сопряжения дальше работаем по ключу
         if (serviceAlive) Notifier.refreshLink(app)
         emit("config")
+        for (upload in uploads.values) resumeUpload(upload)
     }
 
     fun send(o: JSONObject) { conn?.sendJson(o) }
@@ -407,44 +469,39 @@ object Hub {
 
     // ---------- файлы ----------
 
-    fun sendUri(uri: Uri, relativeName: String? = null) {
+    fun sendUri(uri: Uri, relativeName: String? = null): Boolean {
+        val destination = targetPc?.fingerprint ?: pin?.substringAfter('.')?.takeIf { it.length == 64 } ?: Prefs.lastPc()?.fingerprint
+        if (destination == null) { toast("Сначала подключите ПК в настройках"); return false }
+        connectForShare()
         work.execute {
+            val power = TransferPower.acquire()
             try {
                 val cr = app.contentResolver
-                var name = "file"
-                var size = -1L
-                cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use {
+                var name = uri.lastPathSegment ?: "file"
+                runCatching { cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                     if (it.moveToFirst()) {
                         it.getString(0)?.let { n -> name = n }
-                        if (!it.isNull(1)) size = it.getLong(1)
                     }
-                }
-                val input = cr.openInputStream(uri) ?: return@execute
-                if (size < 0) size = cr.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
-                if (size < 0) { input.close(); toast("Не удалось определить размер файла"); return@execute }
-                if (size > 8L * 1024 * 1024 * 1024) { input.close(); toast("Файл больше 8 ГБ"); return@execute }
-                if (uploads.size >= 128) { input.close(); toast("Очередь передач заполнена"); return@execute }
-                val digest = java.security.MessageDigest.getInstance("SHA-256")
-                input.use {
-                    val buffer = ByteArray(65536)
-                    while (true) {
-                        val count = it.read(buffer)
-                        if (count < 0) break
-                        digest.update(buffer, 0, count)
-                    }
-                }
-                val hash = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
-                val id = java.util.UUID.randomUUID().toString().replace("-", "")
-                val upload = Upload(id, uri, relativeName ?: name, size, hash)
-                uploads[id] = upload
-                resumeUpload(upload)
-            } catch (_: Exception) {
-                toast("Не удалось открыть файл")
-            }
+                } }
+                val item = outbox.enqueue(relativeName ?: name, destination) { cr.openInputStream(uri) }
+                val upload = Upload(item.id, Uri.fromFile(item.file), item.name, item.size, item.hash, item.fingerprint)
+                uploads[item.id] = upload
+                main.post { showQueued(upload); resumeUpload(upload) }
+            } catch (e: Exception) {
+                toast(e.message ?: "Не удалось поставить файл в очередь")
+            } finally { TransferPower.release(power) }
         }
+        return true
+    }
+
+    private fun showQueued(upload: Upload) {
+        val transfer = Transfer("u" + upload.id, false, upload.name, upload.size).apply { state = "queued" }
+        synchronized(transferMap) { transferMap[transfer.id] = transfer }
+        emit("transfer", transfer)
     }
 
     private fun resumeUpload(upload: Upload) {
+        if (activeFingerprint != upload.fingerprint || !can("files")) return
         conn?.takeIf { it.isConnected }?.upload(upload.id, upload.name, upload.size, upload.hash) {
             app.contentResolver.openInputStream(upload.uri)
         }
@@ -455,11 +512,16 @@ object Hub {
         if (!transferId.startsWith("u")) return
         val id = transferId.substring(1)
         uploads.remove(id)
+        uploadRetries.remove(id)
+        synchronized(transferMap) { transferMap[transferId]?.state = "cancelled" }
+        emit("transfer")
+        work.execute { outbox.remove(id) }
         conn?.cancelUpload(id)
     }
 
     fun retryUpload(transferId: String) {
         val upload = uploads[transferId.removePrefix("u")] ?: return
+        connectForShare()
         resumeUpload(upload)
     }
 
@@ -534,3 +596,4 @@ object Hub {
         return try { ByteArray(6) { parts[it].toInt(16).toByte() } } catch (_: Exception) { null }
     }
 }
+
